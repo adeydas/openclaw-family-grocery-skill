@@ -112,7 +112,9 @@ Every entry in `list.md` and `history.md` must include the user name and ISO tim
 
 ### 7. Store headings always include address
 When displaying the list, format each store heading as:
-`🏪 [Store Name] — [Full Address]`
+`🏪 [Store Name] ([Full Address])`
+
+Always end the list with `Total items: [count]` across all stores including unassigned.
 
 ### 8. Admin-only actions
 | Action | Who can do it |

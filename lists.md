@@ -60,22 +60,25 @@ Triggers: "Remove [item]", "I got the [item]", "Delete [item]", "Cross off [item
 
 Triggers: "Show me the grocery list", "What do we need?", "Show the list"
 
-Output format — group by store, sorted by store name. Each store heading includes full address:
+Output format — group by store, sorted by store name. Each store heading includes full address. End with a total item count.
 
 ```
-🏪 Whole Foods — 123 Main St, Anytown
-- Milk (2L) — added by Nita on Mar 10
-- Eggs (x12) — added by Abhishek on Mar 11
+🏪 Whole Foods (123 Main St, Anytown)
+- Milk, 2L
+- Eggs, x12
 
-🏪 Costco — 456 Oak Ave, Anytown
-- Olive oil (3L) — added by Nita on Mar 9
+🏪 Costco (456 Oak Ave, Anytown)
+- Olive oil, 3L
 
 📋 Unassigned
-- Batteries (x4) — added by Abhishek on Mar 12
+- Batteries, x4
+
+Total items: 4
 ```
 
 - If list is empty → "The grocery list is empty."
 - Unassigned items (no store) always appear last under `📋 Unassigned`.
+- Total count includes all items across all stores (including unassigned).
 
 ---
 

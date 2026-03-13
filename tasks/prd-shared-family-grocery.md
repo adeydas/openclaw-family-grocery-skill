@@ -82,17 +82,20 @@ An OpenClaw skill that enables multiple family members (each using their own age
 - [ ] Each item shows: name, quantity, added by, date added
 - [ ] Items with no store assigned appear under an "Unassigned" section at the bottom
 - [ ] Empty list shows: "The grocery list is empty."
+- [ ] End with total item count across all stores
 - [ ] Format example:
   ```
-  🏪 Whole Foods — 123 Main St, Anytown
-  - Milk (2L) — added by Nita on Mar 10
-  - Eggs (x12) — added by Abhishek on Mar 11
+  🏪 Whole Foods (123 Main St, Anytown)
+  - Milk, 2L
+  - Eggs, x12
 
-  🏪 Costco — 456 Oak Ave, Anytown
-  - Olive oil (3L) — added by Nita on Mar 9
+  🏪 Costco (456 Oak Ave, Anytown)
+  - Olive oil, 3L
 
   📋 Unassigned
-  - Batteries (x4) — added by Abhishek on Mar 12
+  - Batteries, x4
+
+  Total items: 4
   ```
 
 ### US-007: Admin sets household primary store and store list
