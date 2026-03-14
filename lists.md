@@ -63,11 +63,11 @@ Triggers: "Show me the grocery list", "What do we need?", "Show the list"
 Output format — group by store, sorted by store name. Each store heading includes full address. End with a total item count.
 
 ```
-🏪 Whole Foods (123 Main St, Anytown)
+🏪 Whole Foods (123 Main St, Anytown) — Mon–Sat 8am–9pm, Sun 9am–7pm
 - Milk, 2L
 - Eggs, x12
 
-🏪 Costco (456 Oak Ave, Anytown)
+🏪 Costco (456 Oak Ave, Anytown) — Mon–Fri 10am–8:30pm, Sat 9:30am–6pm, Sun 10am–6pm
 - Olive oil, 3L
 
 📋 Unassigned
@@ -75,6 +75,8 @@ Output format — group by store, sorted by store name. Each store heading inclu
 
 Total items: 4
 ```
+
+- If store hours are not set, omit them from the heading (just show name and address).
 
 - If list is empty → "The grocery list is empty."
 - Unassigned items (no store) always appear last under `📋 Unassigned`.

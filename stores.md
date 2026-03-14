@@ -18,12 +18,20 @@ Any user can add a store. Triggers: "Add store [name]", "Add store [name] at [ad
    - No address provided + web search unavailable:
      - Ask: "What's the address for [store]?"
 
-3. **Write to `config.json`** under `stores` array:
+3. **Resolve store hours** (if web search available):
+   - Search: "[store name] [address] store hours"
+   - Present result: "Found hours: Mon–Sat 8am–9pm, Sun 9am–7pm. Correct? (yes / enter correct hours)"
+   - User confirms → use found hours.
+   - User provides different hours → use user's hours.
+   - Web search unavailable → ask: "What are the store hours for [store]? (or skip)"
+   - User skips → store hours left empty, can be added later.
+
+4. **Write to `config.json`** under `stores` array:
    ```json
-   { "name": "[Store Name]", "address": "[Full Address]" }
+   { "name": "[Store Name]", "address": "[Full Address]", "hours": "[Store Hours]" }
    ```
 
-4. **Confirm**: "Added [Store Name] — [address] to the store list."
+5. **Confirm**: "Added [Store Name] — [address] ([hours]) to the store list."
 
 ---
 
@@ -85,9 +93,9 @@ All stores:
 {
   "primary_store": "Whole Foods",
   "stores": [
-    { "name": "Whole Foods", "address": "123 Main St, Anytown" },
-    { "name": "Costco", "address": "456 Oak Ave, Anytown" },
-    { "name": "Target", "address": "789 Elm Rd, Anytown" }
+    { "name": "Whole Foods", "address": "123 Main St, Anytown", "hours": "Mon–Sat 8am–9pm, Sun 9am–7pm" },
+    { "name": "Costco", "address": "456 Oak Ave, Anytown", "hours": "Mon–Fri 10am–8:30pm, Sat 9:30am–6pm, Sun 10am–6pm" },
+    { "name": "Target", "address": "789 Elm Rd, Anytown", "hours": "8am–10pm daily" }
   ],
   "fallback_order": ["Whole Foods", "Costco", "Target"],
   "category_store_map": {

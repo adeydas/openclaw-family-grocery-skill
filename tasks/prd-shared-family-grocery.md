@@ -85,11 +85,11 @@ An OpenClaw skill that enables multiple family members (each using their own age
 - [ ] End with total item count across all stores
 - [ ] Format example:
   ```
-  🏪 Whole Foods (123 Main St, Anytown)
+  🏪 Whole Foods (123 Main St, Anytown) — Mon–Sat 8am–9pm, Sun 9am–7pm
   - Milk, 2L
   - Eggs, x12
 
-  🏪 Costco (456 Oak Ave, Anytown)
+  🏪 Costco (456 Oak Ave, Anytown) — Mon–Fri 10am–8:30pm, Sat 9:30am–6pm
   - Olive oil, 3L
 
   📋 Unassigned
