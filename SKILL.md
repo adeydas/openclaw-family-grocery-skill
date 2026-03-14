@@ -114,7 +114,7 @@ Every entry in `list.md` and `history.md` must include the user name and ISO tim
 When displaying the list, format each store heading as:
 `🏪 [Store Name] ([Full Address]) — [Store Hours]`
 
-If store hours are not set, omit them from the heading.
+If store hours are missing, resolve them before displaying: web search → confirm with user → save to `config.json`. If search unavailable, ask user. If user skips, omit hours from heading. This ensures migration from older configs that lack store hours.
 
 Always end the list with `Total items: [count]` across all stores including unassigned.
 

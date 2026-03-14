@@ -76,7 +76,14 @@ Output format — group by store, sorted by store name. Each store heading inclu
 Total items: 4
 ```
 
-- If store hours are not set, omit them from the heading (just show name and address).
+- If store hours are missing for any store in the list:
+  1. Before displaying, check `config.json` for stores with empty/missing `hours`.
+  2. If web search available → search "[store name] [address] store hours" for each.
+  3. Present results: "I found hours for [store]: [hours]. Correct? (yes / enter correct hours)"
+  4. Save confirmed hours to `config.json`.
+  5. Then display the list with the newly resolved hours.
+  6. If web search unavailable → ask: "What are the hours for [store]? (or skip)"
+  7. If user skips → omit hours from that store's heading for now.
 
 - If list is empty → "The grocery list is empty."
 - Unassigned items (no store) always appear last under `📋 Unassigned`.
