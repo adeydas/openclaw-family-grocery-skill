@@ -13,6 +13,7 @@ A shared family grocery list skill for [OpenClaw](https://openclaw.com). Multipl
 - **Web search integration** — verifies store addresses, hours, and item availability (optional, degrades gracefully)
 - **Access control** — admin manages family members; all approved members get full list access
 - **Change history** — every add, remove, and merge is logged and surfaceable on request
+- **Food safety** — track safety risks and safer alternatives per item; surfaced automatically when viewing the list
 
 ## How It Works
 
@@ -21,7 +22,8 @@ A shared family grocery list skill for [OpenClaw](https://openclaw.com). Multipl
 ├── config.json    # Stores, primary store, fallback order, category→store map
 ├── users.md       # Family members and roles (admin/member)
 ├── list.md        # Current grocery list, grouped by store
-└── history.md     # Log of all adds, removes, and merges
+├── history.md     # Log of all adds, removes, and merges
+└── safety.json    # Food safety risks and alternatives per item
 ```
 
 All agents read and write to the same shared local path. The admin sets it up once, adds family members by name, and shares the path.
@@ -78,6 +80,9 @@ Output:
 - Olive oil, 3L
 
 Total items: 3
+
+⚠️ Safety notes:
+- Raw chicken — Salmonella contamination. Alternatives: rotisserie chicken, tofu.
 ```
 
 **Manage stores:**
@@ -92,6 +97,14 @@ Total items: 3
 "What changed recently?"
 ```
 
+**Food safety:**
+```
+"Add safety risk for raw chicken"
+"Update the alternative for raw chicken"
+"Show safety risks"
+"Remove safety risk for raw chicken"
+```
+
 ## Skill Files
 
 | File | Purpose |
@@ -100,6 +113,7 @@ Total items: 3
 | `lists.md` | Add, remove, view, and history operations |
 | `stores.md` | Store management — add, primary, fallback, categories |
 | `user-management.md` | Admin setup, add/remove users |
+| `food-safety.md` | Food safety risks and alternatives — add, edit, remove, list |
 | `memory-template.md` | Data file templates and OpenClaw memory keys |
 
 ## License
