@@ -89,6 +89,16 @@ Total items: 4
 - Unassigned items (no store) always appear last under `📋 Unassigned`.
 - Total count includes all items across all stores (including unassigned).
 
+**Safety notices** — after printing "Total items: [count]", read `safety.json` fresh and fuzzy-match (case-insensitive, singular/plural) every item currently in `list.md` against the `risks` entries. If any current-list item has a matching risk, append:
+
+```
+⚠️ Safety notes:
+• [Item] — [Risk]. Alternatives: [alt1], [alt2].
+• [Item] — [Risk]. No alternatives on file.
+```
+
+Omit the "⚠️ Safety notes" section entirely if no current-list items match any safety entry.
+
 ---
 
 ## Viewing History

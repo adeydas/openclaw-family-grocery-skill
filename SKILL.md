@@ -30,6 +30,7 @@ Skill reference files:
 | List operations | `lists.md` |
 | Store management | `stores.md` |
 | User management | `user-management.md` |
+| Food safety | `food-safety.md` |
 
 ## Startup Sequence
 
@@ -48,6 +49,7 @@ Run this every invocation, in order:
 2. Look up the username (from Step 1) in `users.md`.
 3. If not found → deny: "`[name]` is not on the family list. Ask your admin to add you."
 4. If found → proceed. Note whether user is `admin` or `member`.
+5. Check whether `[shared-path]/safety.json` exists. If not → create it with `{"risks": []}` (silent upgrade, no user prompt needed).
 
 ---
 
@@ -57,7 +59,7 @@ Only runs when no shared path is in OpenClaw memory.
 
 1. Ask: "What shared path should I use for the family grocery data? (e.g. /Users/Shared/grocery)"
 2. Create directory: `mkdir -p [path]`
-3. Initialize files from `memory-template.md`: `config.json`, `users.md`, `list.md`, `history.md`
+3. Initialize files from `memory-template.md`: `config.json`, `users.md`, `list.md`, `history.md`, `safety.json`
 4. Write the current user to `users.md` as `admin`
 5. Save path to OpenClaw memory as `family_grocery_path`
 6. Confirm: "Setup complete. You are admin. Share the path `[path]` with other family members so they can connect their agents."
@@ -117,6 +119,16 @@ When displaying the list, format each store heading as:
 If store hours are missing, resolve them before displaying: web search → confirm with user → save to `config.json`. If search unavailable, ask user. If user skips, omit hours from heading. This ensures migration from older configs that lack store hours.
 
 Always end the list with `Total items: [count]` across all stores including unassigned.
+
+After "Total items", read `safety.json` fresh and fuzzy-match every current-list item against the `risks` entries. If any matches are found, append:
+
+```
+⚠️ Safety notes:
+• [Item] — [Risk]. Alternatives: [alt1], [alt2].
+• [Item] — [Risk]. No alternatives on file.
+```
+
+Omit the section entirely if no current-list items have a safety entry.
 
 ### 8. Admin-only actions
 | Action | Who can do it |

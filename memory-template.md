@@ -52,6 +52,16 @@ The admin's name and today's date are written here during setup.
 
 ---
 
+## safety.json
+
+```json
+{
+  "risks": []
+}
+```
+
+---
+
 ## OpenClaw Memory Keys
 
 These keys are saved per-agent (not in the shared path):
