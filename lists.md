@@ -38,6 +38,14 @@
 
 7. **Confirm**: "Added [item] ([qty]) to [store name]."
 
+8. **Check health notices** — fetch Canada public health notices and fuzzy-match the item against active outbreaks (see `health-notices.md` for full flow).
+   - Match found → append warning after the confirmation:
+     ```
+     ⚠️ Health notice: [Item] is linked to an active public health outbreak — [Risk summary]. [Key advice point]. See: [URL]
+     ```
+   - No match → nothing extra.
+   - Web fetch unavailable → skip silently.
+
 ---
 
 ## Removing an Item
@@ -89,15 +97,16 @@ Total items: 4
 - Unassigned items (no store) always appear last under `📋 Unassigned`.
 - Total count includes all items across all stores (including unassigned).
 
-**Safety notices** — after printing "Total items: [count]", read `safety.json` fresh and fuzzy-match (case-insensitive, singular/plural) every item currently in `list.md` against the `risks` entries. If any current-list item has a matching risk, append:
+**Safety notices** — after printing "Total items: [count]", read `safety.json` fresh and fuzzy-match (case-insensitive, singular/plural) every item currently in `list.md` against the `risks` entries. Also check Canada public health notices for active outbreaks matching any current-list item (see `health-notices.md`). Combine both into a single section:
 
 ```
 ⚠️ Safety notes:
-• [Item] — [Risk]. Alternatives: [alt1], [alt2].
-• [Item] — [Risk]. No alternatives on file.
+• [Item] — [Risk from safety.json]. Alternatives: [alt1], [alt2].
+• [Item] — [Risk from safety.json]. No alternatives on file.
+• [Item] — Active health notice: [Risk summary]. See: [URL]
 ```
 
-Omit the "⚠️ Safety notes" section entirely if no current-list items match any safety entry.
+Omit the "⚠️ Safety notes" section entirely if no current-list items match any safety entry or health notice.
 
 ---
 

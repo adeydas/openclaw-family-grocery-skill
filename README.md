@@ -12,6 +12,7 @@ A grocery list skill for [OpenClaw](https://openclaw.com). Add, remove, and view
 - **Web search integration** — verifies store addresses, hours, and item availability (optional, degrades gracefully)
 - **Change history** — every add, remove, and merge is logged and surfaceable on request
 - **Food safety** — track safety risks and safer alternatives per item; surfaced automatically when viewing the list
+- **Health notices** — checks [Canada public health notices](https://www.canada.ca/en/public-health/services/public-health-notices.html) for active outbreaks when adding items; warnings surfaced on add and in list view
 
 ## How It Works
 
@@ -40,6 +41,13 @@ The skill will ask for a data path (e.g. `/Users/Shared/grocery`), create the di
 "Add 2L of milk"
 "Add eggs at Costco"
 "Add ingredients for carbonara"
+"Add pistachios"
+```
+
+If a Canada public health notice is active for the item:
+```
+Added pistachios (1) to Whole Foods.
+⚠️ Health notice: Pistachios are linked to an active Salmonella outbreak — Do not consume recalled pistachios due to possible Salmonella contamination. See: https://www.canada.ca/en/public-health/services/public-health-notices/2025/outbreak-salmonella-infections-pistachios-related-products.html
 ```
 
 **Remove items:**
@@ -66,6 +74,7 @@ Total items: 3
 
 ⚠️ Safety notes:
 - Raw chicken — Salmonella contamination. Alternatives: rotisserie chicken, tofu.
+- Pistachios — Active health notice: Salmonella outbreak linked to pistachios. See: https://www.canada.ca/en/public-health/services/public-health-notices/2025/outbreak-salmonella-infections-pistachios-related-products.html
 ```
 
 **Manage stores:**
@@ -96,6 +105,7 @@ Total items: 3
 | `lists.md` | Add, remove, view, and history operations |
 | `stores.md` | Store management — add, primary, fallback, categories |
 | `food-safety.md` | Food safety risks and alternatives — add, edit, remove, list |
+| `health-notices.md` | Canada public health notices — active outbreak checks and warnings |
 | `memory-template.md` | Data file templates and OpenClaw memory keys |
 
 ## License

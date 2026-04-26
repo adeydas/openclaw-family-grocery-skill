@@ -29,6 +29,7 @@ Skill reference files:
 | List operations | `lists.md` |
 | Store management | `stores.md` |
 | Food safety | `food-safety.md` |
+| Health notices | `health-notices.md` |
 
 ## Startup Sequence
 
@@ -63,6 +64,7 @@ This skill ONLY:
 - Tracks stores and their addresses
 - Assigns items to stores (by user input, category, or primary store default)
 - Checks item availability and store addresses via web search (when available)
+- Checks Canada public health notices for active outbreaks when adding items
 - Surfaces change history on request
 
 This skill NEVER:
@@ -84,18 +86,21 @@ Resolution order: user input → category mapping → primary store.
 
 See `lists.md` for full add flow including duplicate detection and web search.
 
-### 3. Duplicate detection before every add
+### 3. Health notice check on every add
+When adding an item, check Canada public health notices for active outbreaks related to the item. If a match is found, show a warning after the add confirmation. See `health-notices.md` for the full flow.
+
+### 4. Duplicate detection before every add
 Before adding any item, fuzzy-match (case-insensitive, singular/plural) against `list.md`. If a match exists, tell the user when it was added, then ask whether to merge quantities or add separately. Log merges in `history.md`.
 
-### 4. Every write is timestamped
+### 5. Every write is timestamped
 Every entry in `list.md` and `history.md` must include an ISO timestamp.
 
-### 5. Web search is optional — always degrade gracefully
+### 6. Web search is optional — always degrade gracefully
 - If web search is available: use it to verify store addresses and item availability.
 - If unavailable: proceed without it, note the limitation to the user once.
 - Never block an action waiting for web search.
 
-### 6. Store headings always include address
+### 7. Store headings always include address
 When displaying the list, format each store heading as:
 `🏪 [Store Name] ([Full Address]) — [Store Hours]`
 
@@ -103,15 +108,15 @@ If store hours are missing, resolve them before displaying: web search → confi
 
 Always end the list with `Total items: [count]` across all stores including unassigned.
 
-After "Total items", read `safety.json` fresh and fuzzy-match every current-list item against the `risks` entries. If any matches are found, append:
+After "Total items", read `safety.json` fresh and fuzzy-match every current-list item against the `risks` entries. Also check Canada public health notices for active outbreaks matching any current-list item (see `health-notices.md`). Combine both into a single safety section:
 
 ```
 ⚠️ Safety notes:
-• [Item] — [Risk]. Alternatives: [alt1], [alt2].
-• [Item] — [Risk]. No alternatives on file.
+• [Item] — [Risk from safety.json]. Alternatives: [alt1], [alt2].
+• [Item] — Active health notice: [Risk summary]. See: [URL]
 ```
 
-Omit the section entirely if no current-list items have a safety entry.
+Omit the section entirely if no current-list items have a safety entry or health notice match.
 
 ---
 
@@ -122,4 +127,5 @@ Omit the section entirely if no current-list items have a safety entry.
 - Showing a list dump without store grouping → always group by store with address heading
 - Forgetting to timestamp changes → every write must include a timestamp
 - Blocking on web search when unavailable → degrade gracefully, proceed without it
+- Skipping the health notice check when adding → always check Canada public health notices on add (gracefully skip if web unavailable)
 - Asking for the shared path every session → it must be in OpenClaw memory after first use
