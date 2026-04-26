@@ -5,7 +5,7 @@ skill: Family Grocery
 
 # Food Safety — Family Grocery
 
-Tracks known safety risks and safer alternatives per grocery item. Any family member can add, edit, or remove risks. Safety entries are surfaced in the grocery list view.
+Tracks known safety risks and safer alternatives per grocery item. Safety entries are surfaced in the grocery list view.
 
 Data lives in `[shared-path]/safety.json`.
 
@@ -26,9 +26,7 @@ Data lives in `[shared-path]/safety.json`.
      "item": "[normalized item name]",
      "risk": "[risk description]",
      "alternatives": ["[alt1]", "[alt2]"],
-     "added_by": "[current user]",
      "added_on": "[YYYY-MM-DD]",
-     "updated_by": null,
      "updated_on": null
    }
    ```
@@ -52,7 +50,7 @@ Data lives in `[shared-path]/safety.json`.
    ```
 3. Ask: "What would you like to update? (risk description / alternatives / both)"
 4. For each field being updated, ask for the new value.
-5. Apply changes. Set `updated_by` to current user and `updated_on` to today's ISO date.
+5. Apply changes. Set `updated_on` to today's ISO date.
 6. Write file.
 7. Confirm: "Safety risk for [item] updated."
 
@@ -98,9 +96,7 @@ List all entries regardless of whether the item is currently on the grocery list
       "item": "raw chicken",
       "risk": "Salmonella contamination — keep refrigerated, cook to 165°F internal temp",
       "alternatives": ["pre-cooked rotisserie chicken", "tofu"],
-      "added_by": "Abhishek",
       "added_on": "2026-03-28",
-      "updated_by": null,
       "updated_on": null
     }
   ]
@@ -110,5 +106,5 @@ List all entries regardless of whether the item is currently on the grocery list
 - `item`: normalized lowercase item name
 - `risk`: free-text description of the safety concern
 - `alternatives`: array of safer substitutes; empty array if none provided
-- `added_by` / `added_on`: attribution at creation
-- `updated_by` / `updated_on`: attribution at last edit; null until edited
+- `added_on`: date at creation
+- `updated_on`: date at last edit; null until edited

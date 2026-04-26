@@ -2,7 +2,7 @@
 
 ## Adding a Store
 
-Any user can add a store. Triggers: "Add store [name]", "Add store [name] at [address]"
+Triggers: "Add store [name]", "Add store [name] at [address]"
 
 ### Flow
 
@@ -35,7 +35,7 @@ Any user can add a store. Triggers: "Add store [name]", "Add store [name] at [ad
 
 ---
 
-## Setting the Primary Store (Admin only)
+## Setting the Primary Store
 
 Triggers: "Set [store] as primary", "Make [store] the default store"
 
@@ -45,7 +45,7 @@ Triggers: "Set [store] as primary", "Make [store] the default store"
 
 ---
 
-## Setting Fallback Order (Admin only)
+## Setting Fallback Order
 
 Triggers: "Set fallback order: [store A] → [store B] → [store C]", "Fallback order: ..."
 
@@ -55,7 +55,7 @@ Triggers: "Set fallback order: [store A] → [store B] → [store C]", "Fallback
 
 ---
 
-## Category→Store Mappings (Admin only)
+## Category→Store Mappings
 
 Triggers: "Assign [category] to [store]", "Map [category] items to [store]"
 

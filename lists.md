@@ -10,7 +10,7 @@
    - "Add a dozen eggs" → item: eggs, qty: x12
 
 2. **Duplicate check** — fuzzy-match (case-insensitive, singular/plural) against all entries in `list.md`.
-   - Match found → "Nita already added eggs (x12) on Mar 10. Add more, update quantity, or cancel?"
+   - Match found → "Eggs (x12) was already added on Mar 10. Add more, update quantity, or cancel?"
      - "Add more" → merge qty (e.g. x12 + x6 = x18), log merge in `history.md`
      - "Update to X" → replace qty, log update in `history.md`
      - "Cancel" → stop, do nothing
@@ -33,7 +33,7 @@
 
 6. **Write to `list.md`** under the resolved store section:
    ```
-   - [item] ([qty]) — added by [user] on [YYYY-MM-DD]
+   - [item] ([qty]) — added on [YYYY-MM-DD]
    ```
 
 7. **Confirm**: "Added [item] ([qty]) to [store name]."
@@ -50,9 +50,9 @@ Triggers: "Remove [item]", "I got the [item]", "Delete [item]", "Cross off [item
 4. Found in multiple stores → ask: "I see [item] at [store A] and [store B]. Remove from which? (both / [store A] / [store B])"
 5. Write removal to `history.md`:
    ```
-   [YYYY-MM-DD HH:MM] REMOVE: [item] ([qty]) from [store] — by [user]
+   [YYYY-MM-DD HH:MM] REMOVE: [item] ([qty]) from [store]
    ```
-6. Confirm: "[Item] removed from [store] by [user]."
+6. Confirm: "[Item] removed from [store]."
 
 ---
 
@@ -103,15 +103,15 @@ Omit the "⚠️ Safety notes" section entirely if no current-list items match a
 
 ## Viewing History
 
-Triggers: "What changed recently?", "Show history", "What did Nita add?"
+Triggers: "What changed recently?", "Show history"
 
 Read `history.md` and surface the relevant entries in plain language:
 
-- "Nita added eggs (x12) on Mar 10."
-- "Abhishek removed milk on Mar 11."
-- "Merged: eggs x12 + x6 = x18 (Nita + Abhishek) on Mar 12."
+- "Added eggs (x12) on Mar 10."
+- "Removed milk on Mar 11."
+- "Merged: eggs x12 + x6 = x18 on Mar 12."
 
-Support filters: by user name, by date range, by action type (add/remove/merge).
+Support filters: by date range, by action type (add/remove/merge).
 
 ---
 
@@ -122,16 +122,16 @@ Group items by store. Each store section starts with a heading:
 ```markdown
 ## Whole Foods
 
-- Milk (2L) — added by Nita on 2026-03-10
-- Eggs (x12) — added by Abhishek on 2026-03-11
+- Milk (2L) — added on 2026-03-10
+- Eggs (x12) — added on 2026-03-11
 
 ## Costco
 
-- Olive oil (3L) — added by Nita on 2026-03-09
+- Olive oil (3L) — added on 2026-03-09
 
 ## Unassigned
 
-- Batteries (x4) — added by Abhishek on 2026-03-12
+- Batteries (x4) — added on 2026-03-12
 ```
 
 ---
@@ -141,8 +141,8 @@ Group items by store. Each store section starts with a heading:
 ```markdown
 # Grocery History
 
-- 2026-03-10 09:14 | ADD | eggs (x12) | Whole Foods | by Nita
-- 2026-03-11 14:02 | ADD | milk (2L) | Whole Foods | by Abhishek
-- 2026-03-12 08:30 | MERGE | eggs x12+x6→x18 | Whole Foods | by Nita + Abhishek
-- 2026-03-13 10:05 | REMOVE | milk (2L) | Whole Foods | by Abhishek
+- 2026-03-10 09:14 | ADD | eggs (x12) | Whole Foods
+- 2026-03-11 14:02 | ADD | milk (2L) | Whole Foods
+- 2026-03-12 08:30 | MERGE | eggs x12+x6→x18 | Whole Foods
+- 2026-03-13 10:05 | REMOVE | milk (2L) | Whole Foods
 ```

@@ -1,17 +1,15 @@
 # Family Grocery
 
-A shared family grocery list skill for [OpenClaw](https://openclaw.com). Multiple family members can add, remove, and view grocery items through their own agents — all backed by a single shared data folder.
+A grocery list skill for [OpenClaw](https://openclaw.com). Add, remove, and view grocery items organized by store — with web-verified addresses and item availability.
 
 **Install from ClawHub:** [clawhub.ai/adeydas/family-grocery](https://clawhub.ai/adeydas/family-grocery)
 
 ## Features
 
-- **Shared list** — one grocery list the whole family contributes to
 - **Store-aware** — items are organized by store with address and hours
 - **Smart store assignment** — items auto-assigned to stores by category, with manual override
-- **Duplicate detection** — fuzzy matching prevents double entries across family members
+- **Duplicate detection** — fuzzy matching prevents double entries
 - **Web search integration** — verifies store addresses, hours, and item availability (optional, degrades gracefully)
-- **Access control** — admin manages family members; all approved members get full list access
 - **Change history** — every add, remove, and merge is logged and surfaceable on request
 - **Food safety** — track safety risks and safer alternatives per item; surfaced automatically when viewing the list
 
@@ -20,34 +18,19 @@ A shared family grocery list skill for [OpenClaw](https://openclaw.com). Multipl
 ```
 [shared-path]/
 ├── config.json    # Stores, primary store, fallback order, category→store map
-├── users.md       # Family members and roles (admin/member)
 ├── list.md        # Current grocery list, grouped by store
 ├── history.md     # Log of all adds, removes, and merges
 └── safety.json    # Food safety risks and alternatives per item
 ```
 
-All agents read and write to the same shared local path. The admin sets it up once, adds family members by name, and shares the path.
+Data lives at a local path you choose during setup.
 
 ## Setup
 
-### 1. Admin initializes
-
-The first user becomes the admin. The skill will ask for a shared path (e.g. `/Users/Shared/grocery`), create the directory, and initialize the data files.
-
-### 2. Admin adds family members
+The skill will ask for a data path (e.g. `/Users/Shared/grocery`), create the directory, and initialize the data files.
 
 ```
-"Add user Nita"
-```
-
-### 3. Members connect
-
-Each member's agent needs:
-- Their name stored in OpenClaw memory (`family_grocery_user`)
-- The shared path stored in OpenClaw memory (`family_grocery_path`)
-
-```
-"Connect to family grocery at /Users/Shared/grocery"
+"What path should I use for the grocery data?"
 ```
 
 ## Usage
@@ -112,7 +95,6 @@ Total items: 3
 | `SKILL.md` | Main skill definition — startup sequence, core rules, scope |
 | `lists.md` | Add, remove, view, and history operations |
 | `stores.md` | Store management — add, primary, fallback, categories |
-| `user-management.md` | Admin setup, add/remove users |
 | `food-safety.md` | Food safety risks and alternatives — add, edit, remove, list |
 | `memory-template.md` | Data file templates and OpenClaw memory keys |
 

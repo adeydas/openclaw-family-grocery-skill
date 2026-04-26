@@ -1,6 +1,6 @@
 # Data File Templates — Family Grocery
 
-These files are created in `[shared-path]/` during admin initialization.
+These files are created in `[shared-path]/` during initialization.
 
 ---
 
@@ -14,19 +14,6 @@ These files are created in `[shared-path]/` during admin initialization.
   "category_store_map": {}
 }
 ```
-
----
-
-## users.md
-
-```markdown
-# Family Members
-
-| Name | Role | Added |
-|------|------|-------|
-```
-
-The admin's name and today's date are written here during setup.
 
 ---
 
@@ -46,7 +33,7 @@ The admin's name and today's date are written here during setup.
 ```markdown
 # Grocery History
 
-<!-- Format: YYYY-MM-DD HH:MM | ACTION | item (qty) | store | by user -->
+<!-- Format: YYYY-MM-DD HH:MM | ACTION | item (qty) | store -->
 <!-- Actions: ADD, REMOVE, MERGE, UPDATE -->
 ```
 
@@ -68,11 +55,6 @@ These keys are saved per-agent (not in the shared path):
 
 | Key | Value | Set when |
 |-----|-------|----------|
-| `family_grocery_user` | Name registered by admin (e.g. "Nita") | Must be set on the agent before first use — the skill will not ask for it |
-| `family_grocery_path` | Shared path (e.g. "/Users/Shared/grocery") | Admin setup, or when a member connects |
+| `family_grocery_path` | Path (e.g. "/Users/Shared/grocery") | First-time setup |
 
-- The admin registers names in `users.md`. The member's agent must store the exact same name.
-- Name matching is case-insensitive.
-- Members also need to save `family_grocery_path` to their own OpenClaw memory when they first connect.
-
-To connect as a member: "Connect to family grocery at [shared-path]" → skill saves path to OpenClaw memory, asks for username if not already stored, then verifies username against `users.md`.
+The path is saved during initialization and reused on every invocation.
