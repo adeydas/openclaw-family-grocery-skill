@@ -39,6 +39,7 @@ An OpenClaw skill that manages a grocery list organized by store. Items are adde
 - [ ] If web search tool is available, skill searches "[item] available at [store name] [store address]" to verify; reports result: "Confirmed available at [store]" or "Couldn't confirm availability — adding anyway"
 - [ ] If web search unavailable, skill notes: "Web search unavailable — adding to [store] based on category/preference"
 - [ ] Item is added to `list.md` under the correct store section with qty and timestamp
+- [ ] Add confirmation includes the timestamp the item was recorded
 - [ ] Skill asks if there are fallback stores if none are already recorded for that item category
 
 ### US-003: User removes an item from the list
@@ -56,21 +57,21 @@ An OpenClaw skill that manages a grocery list organized by store. Items are adde
 **Acceptance Criteria:**
 - [ ] User can say "Show me the grocery list" or "What do we need?"
 - [ ] Output groups items by store, with store name and full address as the heading
-- [ ] Each item shows: name, quantity, date added
+- [ ] Each item shows: name, quantity, and timestamp added
 - [ ] Items with no store assigned appear under an "Unassigned" section at the bottom
 - [ ] Empty list shows: "The grocery list is empty."
 - [ ] End with total item count across all stores
 - [ ] Format example:
   ```
   🏪 Whole Foods (123 Main St, Anytown) — Mon–Sat 8am–9pm, Sun 9am–7pm
-  - Milk, 2L
-  - Eggs, x12
+  - Milk, 2L — added on 2026-03-10
+  - Eggs, x12 — added on 2026-03-11
 
   🏪 Costco (456 Oak Ave, Anytown) — Mon–Fri 10am–8:30pm, Sat 9:30am–6pm
-  - Olive oil, 3L
+  - Olive oil, 3L — added on 2026-03-09
 
   📋 Unassigned
-  - Batteries, x4
+  - Batteries, x4 — added on 2026-03-12
 
   Total items: 4
   ```
@@ -106,7 +107,7 @@ An OpenClaw skill that manages a grocery list organized by store. Items are adde
 - FR-3: `list.md` stores current items grouped by store; each entry: item, qty, store, timestamp
 - FR-4: `history.md` logs all additions and removals with timestamp and action
 - FR-5: Path is persisted to OpenClaw memory on first use
-- FR-6: Every write to `list.md` includes a timestamp
+- FR-6: Every write to `list.md` includes a timestamp, and list output shows that timestamp next to each item
 - FR-7: When adding an item, skill always resolves the store before writing (via user input → category default → primary store, in that order)
 - FR-8: When web search tool is available, skill searches for item availability at the target store before confirming
 - FR-9: Store headings in list output always show full name + address

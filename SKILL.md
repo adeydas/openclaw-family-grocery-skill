@@ -95,6 +95,9 @@ Before adding any item, fuzzy-match (case-insensitive, singular/plural) against 
 ### 5. Every write is timestamped
 Every entry in `list.md` and `history.md` must include an ISO timestamp.
 
+### 5a. List views always show item timestamps
+When displaying grocery items, always show the item's add timestamp next to it, whether the user is viewing one store or the full list.
+
 ### 6. Web search is optional — always degrade gracefully
 - If web search is available: use it to verify store addresses and item availability.
 - If unavailable: proceed without it, note the limitation to the user once.
@@ -117,6 +120,146 @@ After "Total items", read `safety.json` fresh and fuzzy-match every current-list
 ```
 
 Omit the section entirely if no current-list items have a safety entry or health notice match.
+
+## Output Contract
+
+Use these formats exactly unless the user explicitly asks for a different presentation.
+
+### Setup complete
+
+```
+Setup complete. Your grocery list is ready at [path].
+```
+
+### Add item
+
+Base confirmation:
+
+```
+Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
+```
+
+If store assignment was inferred from category or primary store, include that in a short sentence before the confirmation:
+
+```
+Adding to [store name] ([reason]).
+Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
+```
+
+If availability could not be confirmed but the item was still added:
+
+```
+Couldn't confirm availability at [store name] — adding anyway.
+Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
+```
+
+If there is a health notice match, append:
+
+```
+⚠️ Health notice: [Item] is linked to an active public health outbreak — [Risk summary]. [Key advice point]. See: [URL]
+```
+
+### Duplicate found while adding
+
+Ask exactly in this shape:
+
+```
+[Item] ([qty]) was already added on [Mon DD]. Add more, update quantity, or cancel?
+```
+
+### Remove item
+
+Single match:
+
+```
+[Item] removed from [store].
+```
+
+Multiple matches:
+
+```
+I see [item] at [store A] and [store B]. Remove from which? (both / [store A] / [store B])
+```
+
+Not found:
+
+```
+I don't see [item] on the list.
+```
+
+### Grocery list view
+
+When showing the full list or a per-store view, render items in this exact shape:
+
+```markdown
+🏪 [Store Name] ([Full Address]) — [Store Hours]
+- [Item], [qty] — added on [YYYY-MM-DD]
+- [Item], [qty] — added on [YYYY-MM-DD]
+
+🏪 [Store Name] ([Full Address]) — [Store Hours]
+- [Item], [qty] — added on [YYYY-MM-DD]
+
+📋 Unassigned
+- [Item], [qty] — added on [YYYY-MM-DD]
+
+Total items: [count]
+```
+
+Rules:
+- Always use `- [Item], [qty] — added on [YYYY-MM-DD]` for every grocery item line.
+- Always include the address in store headings.
+- Include `— [Store Hours]` only when hours are known.
+- Show `📋 Unassigned` only when unassigned items exist.
+- Keep one blank line between sections.
+- After `Total items: [count]`, append the safety section only when needed.
+
+Safety section format:
+
+```markdown
+⚠️ Safety notes:
+• [Item] — [Risk from safety.json]. Alternatives: [alt1], [alt2].
+• [Item] — [Risk from safety.json]. No alternatives on file.
+• [Item] — Active health notice: [Risk summary]. See: [URL]
+```
+
+Empty list:
+
+```
+The grocery list is empty.
+```
+
+### Stores view
+
+Use this exact structure:
+
+```markdown
+Primary: [Store Name] — [address]
+Fallback order: [Store A] → [Store B] → [Store C]
+
+All stores:
+- [Store Name] — [address]
+- [Store Name] — [address]
+```
+
+### History view
+
+Surface history entries in plain language, one per line:
+
+```markdown
+Added [item] ([qty]) on [Mon DD].
+Removed [item] from [store] on [Mon DD].
+Merged: [item] [old qty]+[new qty]→[merged qty] on [Mon DD].
+```
+
+### Safety list view
+
+When the user asks to show all food safety notes, use:
+
+```markdown
+Food safety notes:
+• [Item] — [Risk]. Alternatives: [alt1], [alt2].
+• [Item] — [Risk]. No alternatives on file.
+```
 
 ---
 

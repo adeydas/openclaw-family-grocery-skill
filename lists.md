@@ -36,7 +36,7 @@
    - [item] ([qty]) — added on [YYYY-MM-DD]
    ```
 
-7. **Confirm**: "Added [item] ([qty]) to [store name]."
+7. **Confirm**: "Added [item] ([qty]) to [store name] on [YYYY-MM-DD]."
 
 8. **Check health notices** — fetch Canada public health notices and fuzzy-match the item against active outbreaks (see `health-notices.md` for full flow).
    - Match found → append warning after the confirmation:
@@ -68,18 +68,18 @@ Triggers: "Remove [item]", "I got the [item]", "Delete [item]", "Cross off [item
 
 Triggers: "Show me the grocery list", "What do we need?", "Show the list"
 
-Output format — group by store, sorted by store name. Each store heading includes full address. End with a total item count.
+Output format — group by store, sorted by store name. Each store heading includes full address. Show each item's add timestamp next to it. End with a total item count.
 
 ```
 🏪 Whole Foods (123 Main St, Anytown) — Mon–Sat 8am–9pm, Sun 9am–7pm
-- Milk, 2L
-- Eggs, x12
+- Milk, 2L — added on 2026-03-10
+- Eggs, x12 — added on 2026-03-11
 
 🏪 Costco (456 Oak Ave, Anytown) — Mon–Fri 10am–8:30pm, Sat 9:30am–6pm, Sun 10am–6pm
-- Olive oil, 3L
+- Olive oil, 3L — added on 2026-03-09
 
 📋 Unassigned
-- Batteries, x4
+- Batteries, x4 — added on 2026-03-12
 
 Total items: 4
 ```
@@ -96,6 +96,7 @@ Total items: 4
 - If list is empty → "The grocery list is empty."
 - Unassigned items (no store) always appear last under `📋 Unassigned`.
 - Total count includes all items across all stores (including unassigned).
+- This timestamp requirement applies whether the user asks for the full list or a filtered/per-store view.
 
 **Safety notices** — after printing "Total items: [count]", read `safety.json` fresh and fuzzy-match (case-insensitive, singular/plural) every item currently in `list.md` against the `risks` entries. Also check Canada public health notices for active outbreaks matching any current-list item (see `health-notices.md`). Combine both into a single section:
 

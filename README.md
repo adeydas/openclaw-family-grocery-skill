@@ -11,6 +11,7 @@ A grocery list skill for [OpenClaw](https://openclaw.com). Add, remove, and view
 - **Duplicate detection** — fuzzy matching prevents double entries
 - **Web search integration** — verifies store addresses, hours, and item availability (optional, degrades gracefully)
 - **Change history** — every add, remove, and merge is logged and surfaceable on request
+- **Item timestamps** — every grocery item is stored with its add timestamp and shown with that timestamp in list views
 - **Food safety** — track safety risks and safer alternatives per item; surfaced automatically when viewing the list
 - **Health notices** — checks [Canada public health notices](https://www.canada.ca/en/public-health/services/public-health-notices.html) for active outbreaks when adding items; warnings surfaced on add and in list view
 
@@ -64,11 +65,11 @@ Added pistachios (1) to Whole Foods.
 Output:
 ```
 🏪 Whole Foods (123 Main St, Anytown) — Mon–Sat 8am–9pm, Sun 9am–7pm
-- Milk, 2L
-- Eggs, x12
+- Milk, 2L — added on 2026-03-10
+- Eggs, x12 — added on 2026-03-11
 
 🏪 Costco (456 Oak Ave, Anytown) — Mon–Fri 10am–8:30pm, Sat 9:30am–6pm
-- Olive oil, 3L
+- Olive oil, 3L — added on 2026-03-09
 
 Total items: 3
 
