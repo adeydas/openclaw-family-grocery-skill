@@ -41,7 +41,7 @@ Triggers: "Set [store] as primary", "Make [store] the default store"
 
 1. Verify store exists in `config.json`. If not → "I don't have [store] in the store list. Add it first."
 2. Update `primary_store` in `config.json`.
-3. Confirm: "[Store] is now the primary store. Items with no store specified will go here by default."
+3. Confirm: "[Store] is now the primary store for any flows that still need a default store."
 
 ---
 
@@ -67,6 +67,24 @@ Common categories: produce, dairy, meat, frozen, bakery, bulk, pharmacy, electro
 
 To view current mappings: "Show category mappings"
 Output: list each category → store from `config.json`.
+
+---
+
+## Item→Store Mappings
+
+Triggers: "Map milk to Whole Foods", "Always get eggs at Costco", "Assign 2% milk to Trader Joe's"
+
+These mappings are item-specific and must use fuzzy matching. A saved mapping for `milk` should also match close variants like `2% milk` and `1% milk`, unless the user explicitly overrides the store on a later add.
+
+### Flow
+
+1. Verify store exists in `config.json`.
+2. Normalize the item name to a reusable fuzzy key.
+3. Save the mapping in `config.json` under `item_store_map`.
+4. Confirm: "I'll remember that [normalized item] goes to [store] next time."
+
+To view current item mappings: "Show item mappings"
+Output: list each saved item → store from `config.json`.
 
 ---
 
@@ -98,6 +116,10 @@ All stores:
     { "name": "Target", "address": "789 Elm Rd, Anytown", "hours": "8am–10pm daily" }
   ],
   "fallback_order": ["Whole Foods", "Costco", "Target"],
+  "item_store_map": {
+    "milk": "Whole Foods",
+    "eggs": "Costco"
+  },
   "category_store_map": {
     "produce": "Whole Foods",
     "dairy": "Whole Foods",

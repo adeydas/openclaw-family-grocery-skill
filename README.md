@@ -7,7 +7,8 @@ A grocery list skill for [OpenClaw](https://openclaw.com). Add, remove, and view
 ## Features
 
 - **Store-aware** — items are organized by store with address and hours
-- **Smart store assignment** — items auto-assigned to stores by category, with manual override
+- **Smart store assignment** — items auto-assigned by saved item mapping or category, otherwise added to `Unassigned` until mapped
+- **Image input** — you can send a photo of a grocery item and the skill will use vision to identify and add it
 - **Duplicate detection** — fuzzy matching prevents double entries
 - **Web search integration** — verifies store addresses, hours, and item availability (optional, degrades gracefully)
 - **Change history** — every add, remove, and merge is logged and surfaceable on request
@@ -19,7 +20,7 @@ A grocery list skill for [OpenClaw](https://openclaw.com). Add, remove, and view
 
 ```
 [shared-path]/
-├── config.json    # Stores, primary store, fallback order, category→store map
+├── config.json    # Stores, primary store, fallback order, item→store map, category→store map
 ├── list.md        # Current grocery list, grouped by store
 ├── history.md     # Log of all adds, removes, and merges
 └── safety.json    # Food safety risks and alternatives per item
@@ -43,6 +44,25 @@ The skill will ask for a data path (e.g. `/Users/Shared/grocery`), create the di
 "Add eggs at Costco"
 "Add ingredients for carbonara"
 "Add pistachios"
+```
+
+You can also send a photo of an item with a message like:
+```
+"Add this"
+```
+
+The skill will identify the item from the image, extract details like variant and size when visible, and then add it through the normal mapping flow.
+
+If the item has no saved item mapping and no category mapping:
+```
+Added pistachios (1) to Unassigned on 2026-05-18.
+Pistachios is currently unassigned and should be mapped to a store.
+```
+
+If the item was identified from an image:
+```
+Identified from image: 2% milk (2L).
+Added 2% milk (2L) to Whole Foods on 2026-05-18.
 ```
 
 If a Canada public health notice is active for the item:

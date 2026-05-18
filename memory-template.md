@@ -11,6 +11,7 @@ These files are created in `[shared-path]/` during initialization.
   "primary_store": "",
   "stores": [],
   "fallback_order": [],
+  "item_store_map": {},
   "category_store_map": {}
 }
 ```

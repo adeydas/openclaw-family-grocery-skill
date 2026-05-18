@@ -8,6 +8,11 @@
    - "Add milk" → item: milk, qty: default (1)
    - "Add 2L of milk" → item: milk, qty: 2L
    - "Add a dozen eggs" → item: eggs, qty: x12
+   - If the user sends an image, use vision to identify the grocery item first.
+     - Extract the likely item name, visible variant/descriptor, and quantity/package size when visible.
+     - Example: a photo of a milk carton may resolve to `2% milk`, qty `2L`.
+     - Normalize the result to a reusable fuzzy item key for mapping, so `milk`, `2% milk`, and `1% milk` can share the same learned preference when appropriate.
+     - If the image is ambiguous, use the best reasonable match and say `Identified from image: [item] ([qty]) (best match).` before the normal add confirmation.
 
 2. **Duplicate check** — fuzzy-match (case-insensitive, singular/plural) against all entries in `list.md`.
    - Match found → "Eggs (x12) was already added on Mar 10. Add more, update quantity, or cancel?"
@@ -18,27 +23,64 @@
 
 3. **Resolve store** — in this order:
    1. Did the user specify a store? ("Add milk at Whole Foods") → use it.
-   2. Does `config.json` have a category mapping for this item type? (e.g. dairy → Whole Foods) → use it, tell user: "Adding to Whole Foods (dairy category default)."
-   3. Fall back to `primary_store` in `config.json` → tell user: "Adding to [primary store] (default)."
+   2. Does `config.json` have a fuzzy item mapping for this item? (e.g. `milk` matches `2% milk`, `1% milk`) → use it, tell user: "Adding to [store] (saved item mapping)."
+   3. Does `config.json` have a category mapping for this item type? (e.g. dairy → Whole Foods) → use it, tell user: "Adding to Whole Foods (dairy category default)."
+   4. If no item mapping and no category mapping exist → assign to `Unassigned`.
 
-4. **Check availability** (if web search available):
+4. **Learn explicit item mappings**:
+   - If the user explicitly names a store for the item ("Add milk at Whole Foods"), save a normalized fuzzy item mapping in `config.json`.
+   - Example: if the user maps `2% milk` to Whole Foods, future adds for `milk`, `1% milk`, and `2% milk` should resolve to Whole Foods unless the user overrides it.
+   - Confirm after add: "I'll remember that milk goes to Whole Foods next time."
+
+5. **Check availability** (if web search available and the item is not unassigned):
    - Search: "[item] available at [store name] [store address]"
    - Found: "Confirmed available at [store]."
    - Not confirmed: "Couldn't confirm availability at [store] — adding anyway."
    - Web search unavailable: note once, proceed.
+   - Skip this step entirely for `Unassigned`.
 
-5. **Ask about fallback stores** (only if no fallback recorded for this item's store yet):
+6. **Ask about fallback stores** (only if no fallback recorded for this item's store yet, and the item is not unassigned):
    - "Any fallback stores for items from [store]? (e.g. if they're out of stock)"
    - Save answer to `config.json` under `fallback_order` if not already set.
 
-6. **Write to `list.md`** under the resolved store section:
+7. **Write to `list.md`** under the resolved store section:
    ```
    - [item] ([qty]) — added on [YYYY-MM-DD]
    ```
 
-7. **Confirm**: "Added [item] ([qty]) to [store name] on [YYYY-MM-DD]."
+8. **Confirm**:
+   - Mapped store:
+     ```
+     Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
+     ```
+   - If the item came from an image:
+     ```
+     Identified from image: [item] ([qty]).
+     Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
+     ```
+   - If the item came from an ambiguous image:
+     ```
+     Identified from image: [item] ([qty]) (best match).
+     Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
+     ```
+   - If the user explicitly assigned the store and the mapping was saved:
+     ```
+     Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
+     I'll remember that [normalized item] goes to [store name] next time.
+     ```
+   - Unassigned:
+     ```
+     Added [item] ([qty]) to Unassigned on [YYYY-MM-DD].
+     [Item] is currently unassigned and should be mapped to a store.
+     ```
+   - If the item came from an image and is unassigned:
+     ```
+     Identified from image: [item] ([qty]).
+     Added [item] ([qty]) to Unassigned on [YYYY-MM-DD].
+     [Item] is currently unassigned and should be mapped to a store.
+     ```
 
-8. **Check health notices** — fetch Canada public health notices and fuzzy-match the item against active outbreaks (see `health-notices.md` for full flow).
+9. **Check health notices** — fetch Canada public health notices and fuzzy-match the item against active outbreaks (see `health-notices.md` for full flow).
    - Match found → append warning after the confirmation:
      ```
      ⚠️ Health notice: [Item] is linked to an active public health outbreak — [Risk summary]. [Key advice point]. See: [URL]
