@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "family-grocery"
+version = "3.0.0"
+description = "Shared mobile grocery checklist with expiring private links for OpenClaw"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = []
+
+[project.optional-dependencies]
+server = ["gunicorn==26.2.0"]
+
+[project.scripts]
+family-grocery = "grocery_service.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["grocery_service*"]
+
+[tool.setuptools.package-data]
+grocery_service = ["static/*"]

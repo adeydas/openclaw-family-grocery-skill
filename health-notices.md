@@ -13,8 +13,14 @@ Source: [Canada Public Health Notices](https://www.canada.ca/en/public-health/se
 
 ## When the Check Runs
 
-- **On item add** — after resolving the store, before writing to `list.md`
+- **On item add** — after a successful CLI add; use a fresh full list when refreshing the cache
 - **On list view** — as part of the safety notices section (see `lists.md`)
+
+## Mobile checklist cache
+
+The web service does not perform external health lookups. After a successful check, the agent writes the full set of matched notices for the current list to `[shared-path]/health-notices.json`, with `checked_at` as the actual UTC ISO check time. Each notice has `item` (the current item's name), `risk` (summary plus advice), and `url`. Use the serialized, atomic write procedure and schema in `memory-template.md`.
+
+Rebuild the complete current-list cache on a list request; do not overwrite it with only the newly added item's notices. A successful check with no matches may save an empty array. On fetch failure, preserve the old cache and timestamp. Cached notices can become outdated; the page labels the check time and does not claim live verification. If nothing has been checked, do not imply that the list is free from health notices.
 
 ---
 

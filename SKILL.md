@@ -1,264 +1,129 @@
 ---
 name: Family Grocery
 slug: family-grocery
-version: 2.0.0
-description: Grocery list organized by store — add, remove, and view items. Web-verified store addresses and item availability.
-metadata: {"clawdbot":{"emoji":"🛒","requires":{"bins":[]},"os":["linux","darwin","win32"]}}
+version: 3.0.0
+description: Manage a shared grocery list by store and show a mobile checklist with private four-hour links. Add from text or images, check off purchases, and surface safety notes.
+metadata: {"clawdbot":{"emoji":"🛒","requires":{"bins":["python3"]},"os":["linux","darwin"]}}
 ---
 
 ## When to Use
 
-You need to add, remove, or view a grocery list organized by store (with address). Focus: what to buy and where, not meal planning.
+Add, remove, or view household groceries organized by store. The default list view is a shared mobile checklist linked from WhatsApp. Focus on what to buy and where; never make purchases, place orders, plan meals, or claim access to live store inventory.
 
-## Architecture
+## Runtime and Data
 
-Data lives in a user-configured local path.
+Version 3 requires the installed Python 3.10+ package and its `family-grocery` CLI. The mobile checklist also requires the running web service behind Nginx. Copying the Markdown skill files alone does not install these components. Follow [the VPS setup guide](docs/vps-setup.md) for `https://hadol.deydas.com/grocery/`.
 
-```
+The CLI and web service use the same transactional SQLite storage code. SQLite is the sole authority for current items, history, revisions, retry receipts, shared links, and browser sessions. Never edit the database directly or fall back to writing legacy Markdown.
+
+```text
 [shared-path]/
-├── config.json    # Stores, primary store, fallback order, category→store map, item→store map
-├── list.md        # Current grocery list, grouped by store
-└── history.md     # Log of all adds, removes, and merges
+├── grocery.sqlite3       # Authoritative list/history and private authentication state
+├── config.json           # Stores, addresses, hours, mappings, fallback preferences
+├── safety.json           # User-maintained food safety notes
+├── health-notices.json   # Optional agent-refreshed health notice cache
+├── metadata.lock         # Lock shared by all JSON metadata writers
+├── list.md               # Optional original legacy input, preserved after migration
+└── history.md            # Optional original legacy input, preserved after migration
 ```
 
-Skill reference files:
+SQLite may create `grocery.sqlite3-wal` and `grocery.sqlite3-shm`; leave them to SQLite. Keep state in a private local directory shared only by the service and OpenClaw OS account. There are no household accounts or individual attribution.
 
-| Topic | File |
-|-------|------|
-| Data file templates | `memory-template.md` |
-| List operations | `lists.md` |
-| Store management | `stores.md` |
-| Food safety | `food-safety.md` |
-| Health notices | `health-notices.md` |
+| Task | Reference |
+| --- | --- |
+| List commands, duplicate/conflict handling, history | [lists.md](lists.md) |
+| Memory keys, JSON schemas, metadata locking | [memory-template.md](memory-template.md) |
+| Stores and learned mappings | [stores.md](stores.md) |
+| User-maintained safety notes | [food-safety.md](food-safety.md) |
+| Canada public health notices and cache | [health-notices.md](health-notices.md) |
+| Installation, migration, Nginx, operations | [docs/vps-setup.md](docs/vps-setup.md) |
 
-## Startup Sequence
+## Startup
 
-Run this every invocation, in order:
+1. Resolve saved OpenClaw memory keys: `family_grocery_cli` (absolute executable, normally `/opt/family-grocery/.venv/bin/family-grocery`), `family_grocery_path` (normally `/var/lib/family-grocery`), and `family_grocery_public_url` (`https://hadol.deydas.com/grocery/`). Use established deployment configuration where available; ask only for genuinely missing information and save resolved values.
+2. Read `config.json`, `safety.json`, and any `health-notices.json` fresh. Every JSON modification must use the shared `metadata.lock` and atomic-replace procedure in [memory-template.md](memory-template.md).
+3. Invoke the configured CLI with `--data-dir [shared-path]`. Its JSON `list` result provides current IDs, versions, and list revision. If the CLI/runtime is missing or fails, report the concrete problem; never use stale legacy files as current state.
 
-### Step 1 — Resolve shared path
-1. Read shared path from OpenClaw memory (key: `family_grocery_path`).
-2. If not found → this is a **first-time setup**. Go to **Init Flow** below.
+Use an argument array where possible. If a shell is required, safely quote each argument: item names, quantities, stores, and paths are data, never shell source. Do not assume the CLI is on `PATH` or OpenClaw's environment matches the web service's.
 
-### Step 2 — Load config
-1. Read `[shared-path]/config.json`.
-2. Check whether `[shared-path]/safety.json` exists. If not → create it with `{"risks": []}` (silent upgrade, no user prompt needed).
+## First-Time Setup and Upgrade
 
----
+Use the installed executable and established deployment values. During an upgrade, stop **all old agents/writers that edit `list.md` or `history.md`** before importing. Back up state, then run:
 
-## Init Flow
-
-Only runs when no shared path is in OpenClaw memory.
-
-1. Ask: "What path should I use for the grocery data? (e.g. /Users/Shared/grocery)"
-2. Create directory: `mkdir -p [path]`
-3. Initialize files from `memory-template.md`: `config.json`, `list.md`, `history.md`, `safety.json`
-4. Save path to OpenClaw memory as `family_grocery_path`
-5. Confirm: "Setup complete. Your grocery list is ready at `[path]`."
-
----
-
-## Scope
-
-This skill ONLY:
-- Manages the grocery list (add, remove, view)
-- Tracks stores and their addresses
-- Assigns items to stores and learns item→store preferences over time
-- Uses the agent's vision capabilities to identify grocery items from images
-- Checks item availability and store addresses via web search (when available)
-- Checks Canada public health notices for active outbreaks when adding items
-- Surfaces change history on request
-
-This skill NEVER:
-- Makes purchases or places orders
-- Plans meals or suggests recipes
-- Reads or writes files outside `[shared-path]`
-- Accesses live store inventory systems
-- Pushes notifications when the list changes
-
----
-
-## Core Rules
-
-### 1. Always reload config on every invocation
-Never cache across sessions. Always re-read `config.json` at startup to pick up any changes.
-
-### 2. Adding items — always resolve a store first
-Resolution order: user input → fuzzy item mapping → category mapping → unassigned.
-
-See `lists.md` for full add flow including duplicate detection and web search.
-
-### 2b. Image-based adds use vision first
-If the user sends an image of an item to add, always use the agent's vision capabilities to identify the product before continuing.
-
-Extract when possible:
-- item name
-- variant or descriptor (for example `2% milk`, `large eggs`, `salted butter`)
-- quantity or package size if clearly visible
-
-Then normalize to a reusable fuzzy item key for mapping and duplicate checks.
-
-If the image is ambiguous, use the best reasonable identification and say so briefly in the add confirmation.
-
-### 2a. Learn item→store mappings from the user
-If the user explicitly assigns an item to a store, save that preference in `config.json` and reuse it for future fuzzy matches of the same item.
-
-Examples:
-- `milk` should match `2% milk` and `1% milk`
-- `eggs` should match `large eggs`
-- matching must be case-insensitive and tolerant of simple descriptors, singular/plural, and quantity/style variants
-
-### 3. Health notice check on every add
-When adding an item, check Canada public health notices for active outbreaks related to the item. If a match is found, show a warning after the add confirmation. See `health-notices.md` for the full flow.
-
-### 4. Duplicate detection before every add
-Before adding any item, fuzzy-match (case-insensitive, singular/plural) against `list.md`. If a match exists, tell the user when it was added, then ask whether to merge quantities or add separately. Log merges in `history.md`.
-
-### 5. Every write is timestamped
-Every entry in `list.md` and `history.md` must include an ISO timestamp.
-
-### 5a. List views always show item timestamps
-When displaying grocery items, always show the item's add timestamp next to it, whether the user is viewing one store or the full list.
-
-### 6. Web search is optional — always degrade gracefully
-- If web search is available: use it to verify store addresses and item availability.
-- If unavailable: proceed without it, note the limitation to the user once.
-- Never block an action waiting for web search.
-
-### 7. Store headings always include address
-When displaying the list, format each store heading as:
-`🏪 [Store Name] ([Full Address]) — [Store Hours]`
-
-If store hours are missing, resolve them before displaying: web search → confirm with user → save to `config.json`. If search unavailable, ask user. If user skips, omit hours from heading. This ensures migration from older configs that lack store hours.
-
-Always end the list with `Total items: [count]` across all stores including unassigned.
-
-After "Total items", read `safety.json` fresh and fuzzy-match every current-list item against the `risks` entries. Also check Canada public health notices for active outbreaks matching any current-list item (see `health-notices.md`). Combine both into a single safety section:
-
-```
-⚠️ Safety notes:
-• [Item] — [Risk from safety.json]. Alternatives: [alt1], [alt2].
-• [Item] — Active health notice: [Risk summary]. See: [URL]
+```text
+[family_grocery_cli] --data-dir [shared-path] init
 ```
 
-Omit the section entirely if no current-list items have a safety entry or health notice match.
+`init` creates SQLite and missing default `config.json`/`safety.json`, imports recognized v1/v2 list/history rows once, and preserves original Markdown and existing JSON. A persistent marker prevents reimport even when the original list was empty. Date-only item dates stay date-only so timezone conversion cannot shift their calendar date. Legacy timestamps with a time but no timezone are interpreted as UTC; originals retain their exact previous text.
 
-## Output Contract
+If migration reports an unsupported row, stop and reconcile it using the preserved source before retrying. Never delete unknown lines, silently skip import, or use `init --no-import` to hide an error. `--no-import` is only for an intentional, explicitly chosen fresh database. After deployment checks pass and all agents use v3, resume grocery work and save all three memory keys.
 
-Use these formats exactly unless the user explicitly asks for a different presentation.
+Confirm only after successful initialization and intended service checks:
 
-### Setup complete
-
-```
+```text
 Setup complete. Your grocery list is ready at [path].
 ```
 
-### Add item
+## Grocery Rules
 
-Base confirmation:
+Use [lists.md](lists.md) for commands and detailed flows.
 
-```
-Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
-```
+- **Images:** use vision first for item, variant, and visible quantity; normalize a fuzzy item key. For approximate identification say `Identified from image: [item] ([qty]) (best match).`
+- **Store resolution:** explicit user choice → saved fuzzy item mapping → category mapping → `Unassigned`. Learn explicit choices through locked JSON updates and confirm only after saving. A milk mapping may match `2% milk` and `1% milk`.
+- **Duplicates:** fuzzy-match a fresh CLI snapshot, including case, simple descriptors, and singular/plural. Ask whether to add more, update quantity, or cancel. A confirmed merge uses `update --action MERGE`; a separate entry requires an explicit choice.
+- **Concurrency:** adds use snapshot `--expected-revision`; updates/removals use exact `--id` and `--version`. Generate an operation UUID before each mutation. Retry an uncertain outcome with the same UUID and identical arguments. On a conflict, reload and reassess rather than blindly adopting a new revision/version.
+- **History:** the service timestamps and commits each item change with its history event. Never append another event from the agent.
+- **Health notices:** check on adds and views; append matching warnings after the result. After a successful complete check, refresh matches for every item in a fresh list snapshot, using each current item's exact name in the cache. Preserve the old file/timestamp on failure. The webpage displays cached notices, not a live health check.
+- **Web lookup:** verify availability, addresses, and hours when possible; unavailable search must not block groceries. Note unavailable availability lookup once; silently skip an unavailable live health fetch while retaining known warnings.
 
-If the item was extracted from an image, prepend:
+## Default List Response
 
-```
-Identified from image: [item] ([qty]).
-Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
-```
+For “show my list”, “what do we need?”, or equivalent, run `list`, then `link --base-url [family_grocery_public_url]`. Copy the returned `url` exactly. Do not invent tokens, change the fragment, or publish private URLs in logs, repository files, public Pages, or search queries.
 
-If the image-based identification is approximate, prepend instead:
-
-```
-Identified from image: [item] ([qty]) (best match).
-Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
-```
-
-If store assignment was inferred from a fuzzy item mapping, include that in a short sentence before the confirmation:
-
-```
-Adding to [store name] (saved item mapping).
-Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
+```text
+Open grocery checklist — [count] items:
+[exact URL returned by CLI]
+Expires [actual date/time and timezone]. Close expires this link for everyone.
 ```
 
-If the user explicitly assigned the item to a store and that mapping was saved for future use, append:
+Format `expires_at` in the user's known timezone, or explicitly label UTC when unknown. An active shared link is reused with its original expiry. Never promise another four hours for a reused link. Opening, refreshing, and sharing do not renew it. **Close** revokes the link and every browser session using it; merely closing a tab does not. The next request after expiry/Close creates a fresh four-hour link.
 
-```
-I'll remember that [normalized item] goes to [store name] next time.
-```
+Return a link even for `0 items`, adding `The grocery list is empty.` Open pages refresh shared changes automatically. Checking removes that exact saved entry and logs it once even when several people check it. Closure/expiry leaves groceries and history intact.
 
-If store assignment was inferred from category mapping, include that in a short sentence before the confirmation:
+Read current safety notes and check health notices before finishing; append a safety section if applicable. Known addresses/hours appear on the page. Resolve missing hours through store management without withholding a working checklist link.
 
-```
-Adding to [store name] ([reason]).
-Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
-```
+Use a text list only when explicitly requested or when link delivery/service access fails while the CLI can still read current data. Minting a token does not prove a broken or unconfigured service is reachable. Explain a known service failure and show current text; never substitute legacy files. For a requested store view, return the shared mobile link and tell the user to select that store's filter on the page. The link itself opens the whole shared list; only an explicit text request switches to a filtered text view.
 
-If there is no fuzzy item mapping and no category mapping, add the item to `Unassigned` and tell the user exactly this:
+## Other Response Formats
 
-```
-Added [item] ([qty]) to Unassigned on [YYYY-MM-DD].
-[Item] is currently unassigned and should be mapped to a store.
-```
+### Add and remove
 
-If the item came from an image and resolved to `Unassigned`, combine the two behaviors in this order:
-
-```
-Identified from image: [item] ([qty]).
-Added [item] ([qty]) to Unassigned on [YYYY-MM-DD].
-[Item] is currently unassigned and should be mapped to a store.
-```
-
-If availability could not be confirmed but the item was still added:
-
-```
-Couldn't confirm availability at [store name] — adding anyway.
-Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
-```
-
-If there is a health notice match, append:
-
-```
-⚠️ Health notice: [Item] is linked to an active public health outbreak — [Risk summary]. [Key advice point]. See: [URL]
-```
-
-### Duplicate found while adding
-
-Ask exactly in this shape:
-
-```
-[Item] ([qty]) was already added on [Mon DD]. Add more, update quantity, or cancel?
-```
-
-### Remove item
-
-Single match:
-
-```
+```text
+Added [item] ([qty]) to [store] on [YYYY-MM-DD].
 [Item] removed from [store].
 ```
 
-Multiple matches:
+Image adds prepend `Identified from image: [item] ([qty]).`, adding `(best match)` for uncertainty. A saved explicit mapping appends `I'll remember that [normalized item] goes to [store] next time.` Unassigned adds append `[Item] is currently unassigned and should be mapped to a store.` Use the returned item's timestamp; never confirm an unsuccessful write.
 
+Duplicate prompt:
+
+```text
+[Item] ([qty]) was already added on [Mon DD]. Add more, update quantity, or cancel?
 ```
+
+For multiple store matches:
+
+```text
 I see [item] at [store A] and [store B]. Remove from which? (both / [store A] / [store B])
 ```
 
-Not found:
+If absent: `I don't see [item] on the list.`
 
-```
-I don't see [item] on the list.
-```
+### Explicit text list or fallback
 
-### Grocery list view
+Group stores alphabetically, Unassigned last. Include item dates in full and filtered views, known address/hours, and count. Label a filtered total clearly; do not invent missing metadata.
 
-When showing the full list or a per-store view, render items in this exact shape:
-
-```markdown
-🏪 [Store Name] ([Full Address]) — [Store Hours]
-- [Item], [qty] — added on [YYYY-MM-DD]
-- [Item], [qty] — added on [YYYY-MM-DD]
-
+```text
 🏪 [Store Name] ([Full Address]) — [Store Hours]
 - [Item], [qty] — added on [YYYY-MM-DD]
 
@@ -268,80 +133,19 @@ When showing the full list or a per-store view, render items in this exact shape
 Total items: [count]
 ```
 
-Rules:
-- Always use `- [Item], [qty] — added on [YYYY-MM-DD]` for every grocery item line.
-- Always include the address in store headings.
-- Include `— [Store Hours]` only when hours are known.
-- Show `📋 Unassigned` only when unassigned items exist.
-- Keep one blank line between sections.
-- After `Total items: [count]`, append the safety section only when needed.
+Omit unknown hours and empty Unassigned sections. Use `address not on file` when missing and resolve it through store management. If empty, say `The grocery list is empty.`
 
-Safety section format:
+### Safety notes
 
-```markdown
+Append only for matching current items:
+
+```text
 ⚠️ Safety notes:
-• [Item] — [Risk from safety.json]. Alternatives: [alt1], [alt2].
-• [Item] — [Risk from safety.json]. No alternatives on file.
+• [Item] — [Risk]. Alternatives: [alt1], [alt2].
+• [Item] — [Risk]. No alternatives on file.
 • [Item] — Active health notice: [Risk summary]. See: [URL]
 ```
 
-Empty list:
+Add-specific warning: `⚠️ Health notice: [Item] is linked to an active public health outbreak — [Risk summary]. [Key advice point]. See: [URL]`. If a live check failed, identify cached notices by their recorded check time rather than implying fresh verification.
 
-```
-The grocery list is empty.
-```
-
-### Stores view
-
-Use this exact structure:
-
-```markdown
-Primary: [Store Name] — [address]
-Fallback order: [Store A] → [Store B] → [Store C]
-
-All stores:
-- [Store Name] — [address]
-- [Store Name] — [address]
-```
-
-### Item mappings view
-
-When the user asks to show saved item mappings, use:
-
-```markdown
-Saved item mappings:
-• [normalized item] → [store name]
-• [normalized item] → [store name]
-```
-
-### History view
-
-Surface history entries in plain language, one per line:
-
-```markdown
-Added [item] ([qty]) on [Mon DD].
-Removed [item] from [store] on [Mon DD].
-Merged: [item] [old qty]+[new qty]→[merged qty] on [Mon DD].
-```
-
-### Safety list view
-
-When the user asks to show all food safety notes, use:
-
-```markdown
-Food safety notes:
-• [Item] — [Risk]. Alternatives: [alt1], [alt2].
-• [Item] — [Risk]. No alternatives on file.
-```
-
----
-
-## Common Traps
-
-- Reading from a stale cached config → always reload `config.json` at startup
-- Adding an item without resolving a store first → always confirm store before writing to `list.md`
-- Showing a list dump without store grouping → always group by store with address heading
-- Forgetting to timestamp changes → every write must include a timestamp
-- Blocking on web search when unavailable → degrade gracefully, proceed without it
-- Skipping the health notice check when adding → always check Canada public health notices on add (gracefully skip if web unavailable)
-- Asking for the shared path every session → it must be in OpenClaw memory after first use
+Store/mapping formats are in [stores.md](stores.md), safety management in [food-safety.md](food-safety.md), and history output in [lists.md](lists.md). History describes what changed and when, without household-member attribution.

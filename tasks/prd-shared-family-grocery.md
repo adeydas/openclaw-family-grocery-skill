@@ -1,207 +1,144 @@
-# PRD: Family Grocery Skill
+# PRD: Family Grocery v3 — Shared Mobile Checklist
 
-## Introduction
+## Product and scope
 
-An OpenClaw skill that manages a grocery list organized by store. Items are added, removed, and viewed with store-aware grouping, web-verified addresses and availability, and category-based store assignment.
+Family Grocery combines an OpenClaw skill, used through WhatsApp, with a mobile webpage for checking off groceries. A household shares one list and one private link, without accounts or individual attribution. OpenClaw runs on a VPS; its existing Nginx server serves the checklist at `https://hadol.deydas.com/grocery/`.
 
----
+The first web version supports viewing and removing items. Adding items, changing quantities, managing stores, interpreting photos, and maintaining safety information remain OpenClaw workflows. Implementation and deployment templates are included in the repository; actual VPS deployment is a separate operation following [the runbook](../docs/vps-setup.md).
 
 ## Goals
 
-- Grocery list organized by store (with address); displayed as store → [item, qty]
-- Smart store assignment: user-specified, fuzzy item-mapped, category-defaulted, or unassigned pending mapping
-- Image-based adds using vision to identify grocery items from photos
-- Attribution of changes with timestamps so you know when items were added or removed
-- Graceful fallback to `Unassigned` when no saved item mapping or category mapping exists
+- Let shoppers open the current grocery list from WhatsApp and remove saved items with large mobile checkboxes.
+- Keep several shoppers and WhatsApp changes consistent without lost updates or duplicate removal history.
+- Limit shared-link access to four hours, with an explicit Close action that immediately revokes access for everyone using that link.
+- Preserve store preferences, vision input, duplicate handling, timestamps, safety notes, and history from the existing skill.
+- Provide reproducible setup and recovery instructions for an agent administering the VPS's existing Nginx installation.
 
----
+## User flows and acceptance criteria
 
-## User Stories
+### US-001: Initialize or migrate the household
 
-### US-001: User initializes the skill
-**Description:** As a user, I want to set up the grocery skill so I have a data location to work from.
+- Persist `family_grocery_path`, `family_grocery_cli`, and `family_grocery_public_url` in OpenClaw memory.
+- Initialize the configured private local directory through the CLI before starting the service.
+- Use `grocery.sqlite3` as the authoritative store for items, history, revisions, retry receipts, shared links, and browser sessions.
+- Import supported legacy list/history Markdown once; retain originals and reject unsupported rows for review rather than silently omitting them.
+- Interpret legacy timestamps without a timezone as UTC and disclose that migration assumption.
+- Preserve existing configuration and safety data. Pause legacy writers during migration and replace their direct Markdown writes with CLI calls.
+- Share state access between the dedicated non-root service and the actual OpenClaw OS account, with no world access.
 
-**Acceptance Criteria:**
-- [ ] If no path is configured, skill prompts: "What path should I use for the grocery data? (e.g. /Users/Shared/grocery)"
-- [ ] Skill creates the directory if it doesn't exist (`mkdir -p`)
-- [ ] Skill initializes `config.json`, `list.md`, `history.md`, `safety.json` in that path
-- [ ] Skill saves path to OpenClaw memory
-- [ ] Skill confirms setup: "Setup complete. Your grocery list is ready at `[path]`."
+### US-002: Add items through WhatsApp
 
-### US-002: User adds an item to the list
-**Description:** As a user, I want to add an item to the grocery list so I know what to buy.
+- Parse natural-language names and quantities; use a default quantity of one when unspecified.
+- For product photos, use the agent's vision to identify the item, visible variant, and package size. Identify approximate matches as such in the confirmation.
+- Reload configuration and current database items before fuzzy duplicate detection. Match case-insensitively and tolerate ordinary singular/plural or descriptor variants.
+- When a duplicate exists, offer adding more, updating quantity, or cancelling. Log a merge/update once and preserve the item's original added timestamp.
+- Resolve stores in this order: explicit user choice → learned item mapping → category mapping → Unassigned.
+- Save explicit item-to-store choices for future fuzzy matches. Tell users when an item remains unassigned.
+- When available, use web tools to check store addresses, hours, and item availability. Distinguish confirmed information from unavailable/unverified information and continue gracefully if web access is unavailable.
+- Check Canadian public health notices on adds and surface relevant warnings according to the health-notice workflow.
+- Submit a list revision with each add so a concurrent edit forces a fresh duplicate check. Submit the item's version for a merge/update so a concurrent quantity change cannot be overwritten.
+- Give each logical change an operation ID, reusing it only when retrying that same request. Confirm success only after the CLI reports a saved change.
 
-**Acceptance Criteria:**
-- [ ] User can say "Add [item]" or "Add [qty] of [item]"
-- [ ] User can also send an image of an item and ask to add it
-- [ ] Skill uses vision to identify the grocery item from the image
-- [ ] Skill extracts visible item details when possible, including variant/descriptor and package size
-- [ ] Before adding, skill checks `list.md` for an existing entry for the same item (case-insensitive, fuzzy match e.g. "eggs" matches "egg")
-- [ ] If duplicate found: "Eggs (x12) was already added on Mar 10. Add more or update quantity?"
-- [ ] If user confirms duplicate or updates qty, merge into single entry with updated quantity; log the merge in `history.md`
-- [ ] If no duplicate, skill resolves store: user input → fuzzy item mapping → category mapping → unassigned
-- [ ] If the user explicitly assigns an item to a store, skill saves that item→store mapping for future use
-- [ ] Fuzzy item mapping handles close variants (e.g. `milk` matches `2% milk` and `1% milk`)
-- [ ] If web search tool is available, skill searches "[item] available at [store name] [store address]" to verify; reports result: "Confirmed available at [store]" or "Couldn't confirm availability — adding anyway"
-- [ ] If web search unavailable, skill notes: "Web search unavailable — adding to [store] based on saved preference/category"
-- [ ] If no mapping exists, skill adds the item under `Unassigned`
-- [ ] Item is added to `list.md` under the correct store section with qty and timestamp
-- [ ] Add confirmation includes the timestamp the item was recorded
-- [ ] If the item was identified from an image, the add confirmation says so
-- [ ] If the item is unassigned, the user is told it should be mapped to a store
-- [ ] Skill asks if there are fallback stores if none are already recorded for that item category
+### US-003: Request and share the mobile checklist
 
-### US-003: User removes an item from the list
-**Description:** As a user, I want to remove an item once it's been bought or is no longer needed.
+- A normal “show grocery list” request returns the private mobile link, current item count, and original expiry information.
+- Reuse the single active link until it expires or is closed. Opening or requesting it never refreshes its deadline.
+- A new link has an absolute TTL of four hours from server creation time.
+- Every household member can use the same link without signing in or identifying themselves.
+- The link secret is in the URL fragment. The browser exchanges it for an HttpOnly session cookie, then removes the secret from the address bar.
+- The public page shell and previews contain no list data. A private session is required to read the list or change it.
+- If the user explicitly requests a text list, or the link service is unavailable, the agent can show current CLI data in the established store-grouped text format. Never fabricate a working link.
 
-**Acceptance Criteria:**
-- [ ] User can say "Remove [item]" or "I got the [item]"
-- [ ] If item appears under multiple stores, skill asks which one to remove from (or all)
-- [ ] Removal is logged to `history.md` with timestamp and action
-- [ ] Skill confirms removal: "[Item] removed from [store]."
+### US-004: Shop with checkboxes
 
-### US-004: User views the grocery list
-**Description:** As a user, I want to see the current list organized by store so I can shop efficiently.
+- Render a responsive, accessible page with store groups, quantities, original added dates, and remaining-item count.
+- Display configured store addresses/hours and put Unassigned last. Missing optional metadata must not hide the saved grocery list.
+- Provide a clear empty-list state, loading/saving feedback, connection status, and retryable error messages.
+- Checking an item removes that exact saved entry and records one timestamped removal. Remove the visible row after the server confirms success.
+- Poll normally every three seconds while connected and refresh after reconnecting; expose no offline queue that could later remove outdated items.
+- Show saved safety notes and matching cached health notices with the cache's check time when available. The webpage does not itself run live health searches.
 
-**Acceptance Criteria:**
-- [ ] User can say "Show me the grocery list" or "What do we need?"
-- [ ] Output groups items by store, with store name and full address as the heading
-- [ ] Each item shows: name, quantity, and timestamp added
-- [ ] Items with no store assigned appear under an "Unassigned" section at the bottom
-- [ ] Empty list shows: "The grocery list is empty."
-- [ ] End with total item count across all stores
-- [ ] Format example:
-  ```
-  🏪 Whole Foods (123 Main St, Anytown) — Mon–Sat 8am–9pm, Sun 9am–7pm
-  - Milk, 2L — added on 2026-03-10
-  - Eggs, x12 — added on 2026-03-11
+### US-005: Handle simultaneous household activity
 
-  🏪 Costco (456 Oak Ave, Anytown) — Mon–Fri 10am–8:30pm, Sat 9:30am–6pm
-  - Olive oil, 3L — added on 2026-03-09
+| Concurrent situation | Required result |
+| --- | --- |
+| Two shoppers remove different items | Both changes persist. |
+| Two shoppers remove the same item | One removal and one history entry. |
+| A quantity changes before an old checkbox is submitted | Reject the stale version and refresh the row before allowing removal. |
+| An item is removed and then re-added | The replacement has a new ID; old actions cannot remove it. |
+| A successful request is retried after a lost response | Return the prior result without a second change/history entry. |
+| A user adds through WhatsApp while browsers are open | Browsers receive the updated list through polling. |
+| An old tab shares a browser cookie with a newer link | Link IDs prevent the old tab from changing or closing the newer link. |
 
-  📋 Unassigned
-  - Batteries, x4 — added on 2026-03-12
+- Use SQLite transactions for authorization, version/revision checks, changes, history, and retry receipts.
+- Support multiple Gunicorn workers and browser users against one local database, rather than relying on a process-local lock.
+- Keep the database on the VPS's local filesystem. This version does not coordinate database files across multiple hosts.
 
-  Total items: 4
-  ```
+### US-006: Close or expire shared access
 
-### US-005: User sets primary store and store list
-**Description:** As a user, I want to define known stores so the skill has defaults and can match items correctly.
+- Display a visible **Close** button and explain that it expires access for everyone using that link.
+- Show the absolute expiry time and remaining time on the page.
+- Closing revokes the link and its sessions server-side; other open pages detect revocation on their next request.
+- Reject list reads and changes after closure or at the four-hour deadline, even with a previously valid session cookie.
+- An expired/closed page directs the user to ask for a new link in WhatsApp. The saved list and history remain intact.
+- Closing the browser tab does not revoke the link. Restarting the service does not reset its deadline or lose revocation state.
+- Expose link creation and administrative revocation only through the trusted local CLI, not public unauthenticated endpoints.
 
-**Acceptance Criteria:**
-- [ ] User can say "Add store [name]" or "Add store [name] at [address]" to register a store
-- [ ] If web search is available, skill searches for the store's address and presents the result: "Found: Whole Foods — 123 Main St, Anytown. Is this the right location? (yes / enter correct address)"
-- [ ] If user confirms, that address is saved; if user provides a different address, the user-provided address is saved
-- [ ] If web search is unavailable and no address was provided, skill prompts: "What's the address for [store]?"
-- [ ] Confirmed store is written to `config.json`
-- [ ] User can designate one store as primary: "Set [store] as primary store"
-- [ ] User can set fallback order: "Fallback order: Whole Foods → Costco → Target"
-- [ ] Registered stores are used as options when asking the user which store for a new item
+### US-007: Preserve stores, mappings, safety notes, and history
 
-### US-006: Skill assigns item to store by category when store is unknown
-**Description:** As a user, I want items I add without specifying a store to automatically go to the right place.
+- Store names, addresses, hours, primary store, fallback order, item mappings, and category mappings remain in `config.json`.
+- Users can add stores, select a primary store, change fallback order, assign categories, and teach item preferences through WhatsApp.
+- Confirm researched store locations/hours with the user as needed; persist only the accepted values.
+- Food-safety risks and alternatives remain user-maintained in `safety.json`.
+- Health notices are checked by OpenClaw on adds/list requests when web access is available; optionally persist an explicitly timestamped `health-notices.json` cache for the mobile page. Do not present cached information as a fresh check.
+- Reload metadata on use and replace JSON files atomically to avoid exposing partial writes to browser readers.
+- “Remove milk” and “I got the eggs” resolve saved IDs and versions through the CLI. Ask which entry to remove when the user intent is ambiguous across stores.
+- History records what changed and when, without identifying household members; surface it on request with useful action/date filtering.
 
-**Acceptance Criteria:**
-- [ ] Skill maintains a category→store mapping in `config.json` (e.g., produce → farmers market, bulk → Costco)
-- [ ] User can update category mappings: "Assign produce to [store]"
-- [ ] Skill maintains an item→store mapping in `config.json` for learned user preferences
-- [ ] When user explicitly maps an item to a store, that mapping is reused for fuzzy future matches of the same item
-- [ ] When user doesn't specify a store for an item, skill checks fuzzy item mapping first, then category mapping, then falls back to `Unassigned`
-- [ ] Skill tells the user what assignment was made: "Added to Whole Foods (produce category default)"
+## Architecture and interfaces
 
-### US-007: User maps an unassigned or recurring item to a store
-**Description:** As a user, I want the skill to remember where I usually buy a specific item so I don't have to repeat it.
-
-**Acceptance Criteria:**
-- [ ] User can say "Map milk to Whole Foods" or explicitly assign a store while adding an item
-- [ ] Skill saves a normalized item→store mapping in `config.json`
-- [ ] Future fuzzy variants of the same item use the saved mapping automatically
-- [ ] Skill confirms: "I'll remember that milk goes to Whole Foods next time."
-
----
-
-## Functional Requirements
-
-- FR-1: All data lives under a user-specified local path, initialized on first run
-- FR-2: `config.json` stores: primary store, store list (name + address + hours), fallback order, item→store mappings, category→store mappings
-- FR-3: `list.md` stores current items grouped by store; each entry: item, qty, store, timestamp
-- FR-4: `history.md` logs all additions and removals with timestamp and action
-- FR-5: Path is persisted to OpenClaw memory on first use
-- FR-6: Every write to `list.md` includes a timestamp, and list output shows that timestamp next to each item
-- FR-7: When adding an item, skill always resolves the store before writing (via user input → fuzzy item mapping → category mapping → unassigned, in that order)
-- FR-8: When web search tool is available, skill searches for item availability at the target store before confirming
-- FR-9: Store headings in list output always show full name + address
-- FR-10: Before adding any item, skill checks for duplicates (case-insensitive, fuzzy match) and prompts user to merge or confirm
-- FR-11: Duplicate merges are logged to `history.md`
-- FR-12: History is surfaced on request (e.g. "what changed recently?") — not proactively pushed
-- FR-13: When a new store is added, skill web-searches for its address, presents the result for user confirmation, and falls back to prompting for the address if search is unavailable or user rejects the result
-- FR-14: Explicit user item→store assignments are saved and reused for future fuzzy item matches
-- FR-15: If no item mapping or category mapping exists, the item is added to `Unassigned` and the user is told it should be mapped
-- FR-16: If the user sends an image, the skill uses vision to identify the grocery item and routes the extracted item through the same duplicate, mapping, and add flow
-
----
-
-## Non-Goals
-
-- No real-time push notifications when the list changes
-- No mobile app or UI — purely an OpenClaw skill interaction
-- No meal planning — this skill handles what to buy, not what to cook
-- No receipt scanning or barcode support
-- No price tracking or budget management
-- No automatic item reordering or smart replenishment
-- No integration with external grocery APIs or ordering systems
-- No multi-user or shared access support
-
----
-
-## Data File Structure
-
-```
-[shared-path]/
-├── config.json        # Stores, categories, primary store, fallback order, item mappings
-├── list.md            # Current grocery list, grouped by store
-├── history.md         # Log of all adds/removes
-└── safety.json        # Food safety risks and alternatives
+```text
+WhatsApp → OpenClaw → family-grocery CLI → shared storage implementation
+Phone → Nginx /grocery/ → Python WSGI API → shared storage implementation
+                                             ↓
+                              local SQLite + JSON metadata
 ```
 
-### config.json schema
-```json
-{
-  "primary_store": "Whole Foods",
-  "stores": [
-    { "name": "Whole Foods", "address": "123 Main St, Anytown", "hours": "Mon–Sat 8am–9pm, Sun 9am–7pm" },
-    { "name": "Costco", "address": "456 Oak Ave, Anytown", "hours": "Mon–Fri 10am–8:30pm, Sat 9:30am–6pm" }
-  ],
-  "fallback_order": ["Whole Foods", "Costco", "Target"],
-  "item_store_map": {
-    "milk": "Whole Foods",
-    "eggs": "Costco"
-  },
-  "category_store_map": {
-    "produce": "Whole Foods",
-    "bulk": "Costco",
-    "electronics": "Target"
-  }
-}
-```
+| Component | Responsibility |
+| --- | --- |
+| Skill Markdown | Intent parsing, vision, fuzzy matching, store/safety workflows, CLI use |
+| `grocery_service/store.py` | Transactions, IDs/versions, migration, history, link/session lifecycle |
+| `grocery_service/cli.py` | Trusted local JSON interface for init/list/add/update/remove/history/link/close-link/export/backup |
+| `grocery_service/web.py` | Static mobile assets and authenticated session/list/remove/close endpoints |
+| `grocery_service/static/` | Phone UI, polling, expiry display, errors, and checkbox actions |
+| Gunicorn + systemd | Non-root application process, loopback listener, restart management |
+| Existing Nginx | Existing HTTPS domain and `/grocery/` reverse-proxy routing |
 
----
+Runtime requirements are Python 3.10+ and Gunicorn for production. SQLite and the WSGI application use Python's standard library. No JavaScript build, separate database server, or native phone application is required.
 
-## Technical Considerations
+## Privacy and deployment requirements
 
-- Path is the single source of truth
-- Web search is optional; skill degrades gracefully when unavailable
-- Skill should read `config.json` on every invocation to pick up any changes
+- Treat a shared link as a bearer credential: anyone holding it has view/remove/close access. Do not post keys, cookies, or session state to logs or public artifacts.
+- Use HTTPS and Secure, HttpOnly, SameSite cookies in production; allow insecure cookies only on explicitly configured loopback HTTP development URLs.
+- Enforce the configured same origin for state-changing browser requests. Return non-cacheable responses and prevent framing and unintended referrer disclosure.
+- Keep Gunicorn on `127.0.0.1:8787`; the public network reaches the existing Nginx HTTPS listener only.
+- Add scoped locations inside the existing `hadol.deydas.com` TLS server block. Preserve unrelated routes, certificate settings, and renewal arrangements; do not replace the whole site.
+- Preserve the `/grocery/` prefix when proxying; disable upstream/CDN caching for it. Validate with `nginx -t` before reload.
+- Supply agent-ready account discovery, private backups, permissions, migration, health/authentication checks, multi-browser validation, and rollback guidance.
+- Use SQLite online backups and separately preserve metadata. Markdown exports are interchange snapshots, not a complete recoverable database backup.
 
----
+## Non-goals
 
-## Success Metrics
+- Individual accounts, per-person permissions, or household-member attribution.
+- A native mobile app, offline writes, or push notifications to WhatsApp.
+- Browser-based adding, quantity editing, or store administration in this version.
+- Purchases, ordering systems, live inventory APIs, price tracking, budgets, receipt/barcode scanning, meal planning, or automatic replenishment.
+- Multi-host database replication or a hosted multi-household service.
 
-- Items are correctly categorized to the right store ≥ 90% of the time without user correction
-- List output is always grouped by store with address, zero unformatted dumps
+## Verification and completion criteria
 
----
-
-## Open Questions
-
-None.
+- Automated tests pass using disposable directories and controlled clocks for migration, shared-link reuse, fixed TTL, revocation, stale versions, atomic history, retry handling, and simultaneous writes.
+- WSGI tests verify private API authentication, origin checks, expiry/revocation enforcement, public shell behavior, and correct `/grocery/` routing.
+- JavaScript passes a syntax check; the mobile UI is visually checked at phone width and exercised in a browser.
+- The VPS runbook includes a two-browser smoke test in disposable state, plus passive production health checks that do not remove household items or close a live link.
+- Deployment completion is reported separately from implementation completion, with the installed revision, changed Nginx file, backup location, and verification results, omitting access secrets.

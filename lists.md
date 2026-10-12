@@ -1,124 +1,88 @@
 # List Operations — Family Grocery
 
+All live list/history operations use the installed `family-grocery` CLI. Here `[cli]` is the saved absolute `family_grocery_cli` path and `[path]` is `family_grocery_path`; substitute safely quoted arguments. `list.md`/`history.md` are legacy import/export artifacts, never fallback writable state.
+
+## CLI Contract
+
+```text
+[cli] --data-dir [path] list
+[cli] --data-dir [path] add --name [item] --quantity [qty] --store [store] --expected-revision [revision] --operation-id [uuid]
+[cli] --data-dir [path] update --id [id] --version [version] --quantity [replacement-qty] --action MERGE --operation-id [uuid]
+[cli] --data-dir [path] update --id [id] --version [version] --quantity [replacement-qty] --action UPDATE --operation-id [uuid]
+[cli] --data-dir [path] remove --id [id] --version [version] --operation-id [uuid]
+[cli] --data-dir [path] history
+[cli] --data-dir [path] link --base-url [public-url]
+```
+
+`update` also accepts `--name` and `--store`. Output is JSON; failure returns nonzero and a structured error on stderr. Although the CLI can generate an operation ID for manual use, an agent must create its UUID **before** launching each mutation and retain it until the outcome is known.
+
+A snapshot has `{items, revision, server_time}`. Each item has `{id, name, quantity, store, added_on, version}`; new items use an ISO UTC `added_on` timestamp, while imported date-only values retain their original ISO calendar date. Adds/updates return `{item, revision, operation_id}`. Removes return `{removed, id, revision, operation_id}`. `removed: false` means the same entry was already removed, with no second history event. Re-adding the same name creates a different ID.
+
+### Concurrency and uncertain outcomes
+
+Each successful mutation commits item, history, revision, and retry receipt in one SQLite transaction. CLI and browser writers share this mechanism.
+
+- **Timeout/interruption/missing response:** retry identical arguments with the same operation ID. Never make a new ID solely because a response was lost.
+- **`revision_conflict`:** reload the list, repeat the fuzzy duplicate decision, and reassess the add. Use a new operation ID if making a revised request.
+- **`item_conflict`:** reload that exact item and reassess its changed name/quantity/store. Seek a renewed user choice if the change affects their intention; do not blindly check off a new version they have not seen.
+- **`not_found` on update:** the entry is gone; do not implicitly recreate it. If absent during removal, report that it is already off the list.
+- **`operation_conflict`:** the ID was used with different arguments. Reconcile the earlier outcome before proceeding; do not automatically submit the same intention under another ID.
+
+Two people removing different items both succeed. Two people removing the same item create one removal/history record. An old checkbox cannot remove a replacement entry. Do not add household identity to commands or history.
+
 ## Adding an Item
 
-### Full add flow
-
-1. **Parse input** — extract item name and quantity from natural language.
-   - "Add milk" → item: milk, qty: default (1)
-   - "Add 2L of milk" → item: milk, qty: 2L
-   - "Add a dozen eggs" → item: eggs, qty: x12
-   - If the user sends an image, use vision to identify the grocery item first.
-     - Extract the likely item name, visible variant/descriptor, and quantity/package size when visible.
-     - Example: a photo of a milk carton may resolve to `2% milk`, qty `2L`.
-     - Normalize the result to a reusable fuzzy item key for mapping, so `milk`, `2% milk`, and `1% milk` can share the same learned preference when appropriate.
-     - If the image is ambiguous, use the best reasonable match and say `Identified from image: [item] ([qty]) (best match).` before the normal add confirmation.
-
-2. **Duplicate check** — fuzzy-match (case-insensitive, singular/plural) against all entries in `list.md`.
-   - Match found → "Eggs (x12) was already added on Mar 10. Add more, update quantity, or cancel?"
-     - "Add more" → merge qty (e.g. x12 + x6 = x18), log merge in `history.md`
-     - "Update to X" → replace qty, log update in `history.md`
-     - "Cancel" → stop, do nothing
-   - No match → continue to step 3.
-
-3. **Resolve store** — in this order:
-   1. Did the user specify a store? ("Add milk at Whole Foods") → use it.
-   2. Does `config.json` have a fuzzy item mapping for this item? (e.g. `milk` matches `2% milk`, `1% milk`) → use it, tell user: "Adding to [store] (saved item mapping)."
-   3. Does `config.json` have a category mapping for this item type? (e.g. dairy → Whole Foods) → use it, tell user: "Adding to Whole Foods (dairy category default)."
-   4. If no item mapping and no category mapping exist → assign to `Unassigned`.
-
-4. **Learn explicit item mappings**:
-   - If the user explicitly names a store for the item ("Add milk at Whole Foods"), save a normalized fuzzy item mapping in `config.json`.
-   - Example: if the user maps `2% milk` to Whole Foods, future adds for `milk`, `1% milk`, and `2% milk` should resolve to Whole Foods unless the user overrides it.
-   - Confirm after add: "I'll remember that milk goes to Whole Foods next time."
-
-5. **Check availability** (if web search available and the item is not unassigned):
-   - Search: "[item] available at [store name] [store address]"
-   - Found: "Confirmed available at [store]."
-   - Not confirmed: "Couldn't confirm availability at [store] — adding anyway."
-   - Web search unavailable: note once, proceed.
-   - Skip this step entirely for `Unassigned`.
-
-6. **Ask about fallback stores** (only if no fallback recorded for this item's store yet, and the item is not unassigned):
-   - "Any fallback stores for items from [store]? (e.g. if they're out of stock)"
-   - Save answer to `config.json` under `fallback_order` if not already set.
-
-7. **Write to `list.md`** under the resolved store section:
-   ```
-   - [item] ([qty]) — added on [YYYY-MM-DD]
-   ```
-
-8. **Confirm**:
-   - Mapped store:
-     ```
-     Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
-     ```
-   - If the item came from an image:
-     ```
-     Identified from image: [item] ([qty]).
-     Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
-     ```
-   - If the item came from an ambiguous image:
-     ```
-     Identified from image: [item] ([qty]) (best match).
-     Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
-     ```
-   - If the user explicitly assigned the store and the mapping was saved:
-     ```
-     Added [item] ([qty]) to [store name] on [YYYY-MM-DD].
-     I'll remember that [normalized item] goes to [store name] next time.
-     ```
-   - Unassigned:
-     ```
-     Added [item] ([qty]) to Unassigned on [YYYY-MM-DD].
-     [Item] is currently unassigned and should be mapped to a store.
-     ```
-   - If the item came from an image and is unassigned:
-     ```
-     Identified from image: [item] ([qty]).
-     Added [item] ([qty]) to Unassigned on [YYYY-MM-DD].
-     [Item] is currently unassigned and should be mapped to a store.
-     ```
-
-9. **Check health notices** — fetch Canada public health notices and fuzzy-match the item against active outbreaks (see `health-notices.md` for full flow).
-   - Match found → append warning after the confirmation:
-     ```
-     ⚠️ Health notice: [Item] is linked to an active public health outbreak — [Risk summary]. [Key advice point]. See: [URL]
-     ```
-   - No match → nothing extra.
-   - Web fetch unavailable → skip silently.
-
----
+1. **Parse input:** “Add milk” → quantity `1`; “Add 2L of milk” → `2L`; “Add a dozen eggs” → `x12`. For an image use vision for the item, variant, and visible package size. For approximation say `Identified from image: [item] ([qty]) (best match).`
+2. **Read a fresh CLI list and check duplicates:** fuzzy-match case-insensitively, including simple descriptors and singular/plural. If matched, ask `[Item] ([qty]) was already added on [Mon DD]. Add more, update quantity, or cancel?`
+3. **Resolve the duplicate choice:** “add more” computes the replacement (e.g. `x12` + `x6` → `x18`) and calls `update --action MERGE` on that ID/version; “update to X” uses `UPDATE`; “cancel” changes nothing. Do not guess arithmetic across incompatible units. Add a separate entry only on an explicit choice, using snapshot revision.
+4. **Resolve a new entry's store:** explicit user choice → fresh config's fuzzy item mapping → category mapping → `Unassigned`. Say `Adding to [store] (saved item mapping).` or `Adding to [store] ([category] category default).` when inferred. Normalize reusable mappings so milk can match `2% milk` and `1% milk`.
+5. **Check availability if possible:** for assigned stores search `[item] available at [store] [address]`. Say `Confirmed available at [store].` only with supporting evidence; otherwise `Couldn't confirm availability at [store] — adding anyway.` Skip Unassigned. Note unavailable search once and proceed.
+6. **Ask about missing fallbacks:** `Any fallback stores for items from [store]? (e.g. if they're out of stock)` when appropriate. Save the answer through the shared JSON lock/atomic replacement, preserving unrelated changes.
+7. **Submit:** create an operation UUID and call `add` with name/quantity/store and the revision used for the duplicate decision. Reassess conflicts as above. Do not write a Markdown row or append history.
+8. **Learn explicit store choices:** after success, save the normalized item mapping with the metadata lock. If that save fails, explain it without repeating the already-successful add. Confirm the preference only after its save succeeds.
+9. **Confirm:** use the returned item's date: `Added [item] ([qty]) to [store] on [YYYY-MM-DD].` Prepend image identification when relevant. Append `I'll remember that [normalized item] goes to [store] next time.` for a saved mapping. For Unassigned append `[Item] is currently unassigned and should be mapped to a store.`
+10. **Check health notices** following [health-notices.md](health-notices.md), then append matches. A fetch failure does not block or roll back the grocery operation. After a successful complete check, read a fresh full list and rebuild its matched notices, using exact current item names. Never overwrite the cache with only the newly added item's matches; retain known warnings on failure.
 
 ## Removing an Item
 
-Triggers: "Remove [item]", "I got the [item]", "Delete [item]", "Cross off [item]"
+Triggers: “Remove [item]”, “I got the [item]”, “Delete [item]”, “Cross off [item]”.
 
-1. Search `list.md` for the item (case-insensitive, fuzzy match).
-2. Not found → "I don't see [item] on the list."
-3. Found in one store → confirm and remove.
-4. Found in multiple stores → ask: "I see [item] at [store A] and [store B]. Remove from which? (both / [store A] / [store B])"
-5. Write removal to `history.md`:
-   ```
-   [YYYY-MM-DD HH:MM] REMOVE: [item] ([qty]) from [store]
-   ```
-6. Confirm: "[Item] removed from [store]."
+1. Read `list` and fuzzy-match current entries. If absent, say `I don't see [item] on the list.`
+2. For ambiguity across stores, ask `I see [item] at [store A] and [store B]. Remove from which? (both / [store A] / [store B])`. Disambiguate separately listed same-name entries at one store too.
+3. Generate an operation UUID for each intended entry, then call `remove` with its exact ID/version. Follow retry/conflict rules. Bulk removal is a sequence of atomic operations, so report any partial outcome accurately.
+4. Confirm `[Item] removed from [store].` If `removed: false`, say it was already checked off. The service creates history; do not append another entry.
 
----
+The mobile checkbox uses the same storage rules: a stale version requires another decision after refreshing, a failed save keeps the row, and simultaneous checks are idempotent.
 
 ## Viewing the List
 
-Triggers: "Show me the grocery list", "What do we need?", "Show the list"
+Triggers: “Show me the grocery list”, “What do we need?”, “Show the list”.
 
-Output format — group by store, sorted by store name. Each store heading includes full address. Show each item's add timestamp next to it. End with a total item count.
+1. Read CLI `list` and fresh metadata. Match `safety.json`, check health notices, and update the optional cache following [health-notices.md](health-notices.md).
+2. Run `link --base-url [family_grocery_public_url]`, which returns `url`, `link_id`, `created_at`, `expires_at`, and `reused`.
+3. Return the exact URL, snapshot count, and actual expiry in the user's known timezone (or explicitly UTC). Deliver this private link only through the authorized conversation.
 
+```text
+Open grocery checklist — [count] items:
+[url]
+Expires [date/time and timezone]. Close expires this link for everyone.
 ```
+
+Everyone sees the same household list. The link expires four hours after creation; repeated requests reuse it with no renewal. Opening, sharing, or refreshing does not extend it. Close revokes all sessions using that link; merely closing the browser tab does not. The next request after Close/expiry creates a new link. Saved groceries/history persist.
+
+Return a link for an empty list too, with `0 items` and `The grocery list is empty.` If the service is known to be unavailable, explain that and provide current text from the CLI. Do not substitute legacy files, manufacture links, or count a minted token as deployment-health evidence.
+
+### Text views and metadata
+
+For a store-specific request, return the shared mobile link and tell the user to select that store's filter on the page. Use text only when explicitly requested or as a service fallback. Group stores alphabetically, Unassigned last; show known address/hours, quantity, and add date for every row:
+
+```text
+🏪 Costco (456 Oak Ave, Anytown) — Mon–Fri 10am–8:30pm, Sat 9:30am–6pm, Sun 10am–6pm
+- Olive oil, 3L — added on 2026-03-09
+
 🏪 Whole Foods (123 Main St, Anytown) — Mon–Sat 8am–9pm, Sun 9am–7pm
 - Milk, 2L — added on 2026-03-10
 - Eggs, x12 — added on 2026-03-11
-
-🏪 Costco (456 Oak Ave, Anytown) — Mon–Fri 10am–8:30pm, Sat 9:30am–6pm, Sun 10am–6pm
-- Olive oil, 3L — added on 2026-03-09
 
 📋 Unassigned
 - Batteries, x4 — added on 2026-03-12
@@ -126,75 +90,36 @@ Output format — group by store, sorted by store name. Each store heading inclu
 Total items: 4
 ```
 
-- If store hours are missing for any store in the list:
-  1. Before displaying, check `config.json` for stores with empty/missing `hours`.
-  2. If web search available → search "[store name] [address] store hours" for each.
-  3. Present results: "I found hours for [store]: [hours]. Correct? (yes / enter correct hours)"
-  4. Save confirmed hours to `config.json`.
-  5. Then display the list with the newly resolved hours.
-  6. If web search unavailable → ask: "What are the hours for [store]? (or skip)"
-  7. If user skips → omit hours from that store's heading for now.
+Label filtered totals. Omit unknown hours; use `address not on file` instead of inventing an address. For missing hours, search `[store] [address] store hours`, present findings for confirmation, and save confirmed data under the metadata lock. If search is unavailable, ask for hours or allow “skip”. Never withhold a working mobile link while resolving optional hours. If offering a link alongside filtered text, explain that it opens the entire shared list.
 
-- If list is empty → "The grocery list is empty."
-- Unassigned items (no store) always appear last under `📋 Unassigned`.
-- Total count includes all items across all stores (including unassigned).
-- This timestamp requirement applies whether the user asks for the full list or a filtered/per-store view.
+### Safety notes
 
-**Safety notices** — after printing "Total items: [count]", read `safety.json` fresh and fuzzy-match (case-insensitive, singular/plural) every item currently in `list.md` against the `risks` entries. Also check Canada public health notices for active outbreaks matching any current-list item (see `health-notices.md`). Combine both into a single section:
+Fuzzy-match current items against fresh saved risks and available health notices. Append one section after the link/text only for matches:
 
-```
+```text
 ⚠️ Safety notes:
-• [Item] — [Risk from safety.json]. Alternatives: [alt1], [alt2].
-• [Item] — [Risk from safety.json]. No alternatives on file.
+• [Item] — [Risk]. Alternatives: [alt1], [alt2].
+• [Item] — [Risk]. No alternatives on file.
 • [Item] — Active health notice: [Risk summary]. See: [URL]
 ```
 
-Omit the "⚠️ Safety notes" section entirely if no current-list items match any safety entry or health notice.
-
----
+The webpage displays saved risks and cached notices; it does not fetch live health data. Failed refreshes preserve the old `checked_at`; identify cached warnings by that time rather than implying fresh verification.
 
 ## Viewing History
 
-Triggers: "What changed recently?", "Show history"
+Run `history` for “What changed recently?” or “Show history”. Filter events by timestamp/action as requested and describe actual changes without personal attribution:
 
-Read `history.md` and surface the relevant entries in plain language:
+- `Added eggs (x12) on Mar 10.`
+- `Removed milk from Costco on Mar 11.`
+- `Updated eggs from x12 to x18 on Mar 12.`
 
-- "Added eggs (x12) on Mar 10."
-- "Removed milk on Mar 11."
-- "Merged: eggs x12 + x6 = x18 on Mar 12."
+New UPDATE/MERGE events retain `before` and `after` item objects as JSON in `details`. Use those values for the real change. Legacy events preserve the item description in `details`, including merge arithmetic when present. Never invent a delta or member identity.
 
-Support filters: by date range, by action type (add/remove/merge).
+## Exports and Backups
 
----
-
-## list.md Format
-
-Group items by store. Each store section starts with a heading:
-
-```markdown
-## Whole Foods
-
-- Milk (2L) — added on 2026-03-10
-- Eggs (x12) — added on 2026-03-11
-
-## Costco
-
-- Olive oil (3L) — added on 2026-03-09
-
-## Unassigned
-
-- Batteries (x4) — added on 2026-03-12
+```text
+[cli] --data-dir [path] export --output-dir [new-export-directory]
+[cli] --data-dir [path] backup --output [new-backup-file.sqlite3]
 ```
 
----
-
-## history.md Format
-
-```markdown
-# Grocery History
-
-- 2026-03-10 09:14 | ADD | eggs (x12) | Whole Foods
-- 2026-03-11 14:02 | ADD | milk (2L) | Whole Foods
-- 2026-03-12 08:30 | MERGE | eggs x12+x6→x18 | Whole Foods
-- 2026-03-13 10:05 | REMOVE | milk (2L) | Whole Foods
-```
+Exports are readable snapshots, not writable synchronization. The destination must differ from live state and contain no existing `list.md`/`history.md`. Backups use SQLite's backup API, refuse existing destinations, and include private credentials. Back up JSON separately as described in [the VPS guide](docs/vps-setup.md). Never copy only a live SQLite main file while ignoring its WAL.

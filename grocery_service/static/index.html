@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f4ed">
+    <meta name="referrer" content="no-referrer">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="description" content="Your household's shared grocery checklist.">
+    <title>Grocery checklist</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="app.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="masthead">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none"><path d="m7 12 5-7m13 7-5-7M5 12h22l-3 14H8L5 12Z"/><path d="M13 16v6m6-6v6"/></svg>
+          </span>
+          <span>Household <strong>groceries</strong></span>
+        </div>
+        <div id="close-control" class="close-control" hidden>
+          <button id="close-link" class="button button-close" type="button" aria-describedby="close-help">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"/></svg>
+            <span>Close</span>
+          </button>
+          <span id="close-help">Expires this link for everyone</span>
+        </div>
+      </header>
+
+      <main>
+        <section id="entry-state" class="entry-state" aria-labelledby="entry-title">
+          <div id="entry-symbol" class="entry-symbol" aria-hidden="true">…</div>
+          <p class="eyebrow">SHARED CHECKLIST</p>
+          <h1 id="entry-title">Opening your checklist</h1>
+          <p id="entry-description">Just a moment while we get your list.</p>
+          <button id="retry-load" class="button button-primary" type="button" hidden>Try again</button>
+        </section>
+
+        <div id="checklist" hidden>
+          <section class="list-intro" aria-labelledby="list-title">
+            <p class="eyebrow">ONE HOUSEHOLD. ONE LIST.</p>
+            <h1 id="list-title">Your grocery list<span class="title-dot">.</span></h1>
+            <p class="intro-copy">Check it off. Everyone stays up to date.</p>
+            <div class="summary-row">
+              <div class="item-summary"><strong id="remaining-count">0</strong><span id="remaining-label">items to pick up</span></div>
+              <div id="connection-state" class="connection-state"><span class="connection-dot" aria-hidden="true"></span><span id="connection-label">Connecting</span></div>
+            </div>
+          </section>
+
+          <div class="expiry-strip">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.25"/><path d="M10 5.75v4.5l3 1.75"/></svg>
+            <div><span>Link closes in <strong id="expiry-countdown">—</strong></span><span id="expiry-at" class="expiry-at"></span></div>
+          </div>
+
+          <div id="connection-message" class="notice notice-connection" role="status" hidden></div>
+          <div id="metadata-warning" class="notice notice-warning" hidden></div>
+          <div id="action-message" class="notice notice-action" role="status" hidden></div>
+
+          <div class="list-toolbar">
+            <label class="store-filter" for="store-filter"><span>Shopping at</span><select id="store-filter"><option value="">All stores</option></select></label>
+            <span class="toolbar-hint">Tap an item when it's in your basket</span>
+          </div>
+
+          <div id="store-groups"></div>
+          <section id="empty-state" class="empty-state" hidden aria-labelledby="empty-title">
+            <div class="empty-symbol" aria-hidden="true">✓</div>
+            <h2 id="empty-title">Everything's in the basket.</h2>
+            <p id="empty-description">You're all caught up. New items will appear here when they're added.</p>
+          </section>
+
+          <p id="safety-footnote" class="safety-footnote" hidden></p>
+          <p class="list-footer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>Every checked item is saved for everyone.</p>
+        </div>
+      </main>
+      <footer class="page-footer">Less remembering. More getting on with your day.</footer>
+      <div id="announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+    </div>
+  </body>
+</html>

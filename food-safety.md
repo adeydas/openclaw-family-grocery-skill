@@ -9,6 +9,8 @@ Tracks known safety risks and safer alternatives per grocery item. Safety entrie
 
 Data lives in `[shared-path]/safety.json`.
 
+Use the serialized, atomic JSON write procedure in `memory-template.md` for every update. The mobile checklist reads saved notes on each refresh and displays notes matching current items.
+
 ---
 
 ## Add Safety Risk

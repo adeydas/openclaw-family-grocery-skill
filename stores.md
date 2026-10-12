@@ -1,5 +1,7 @@
 # Store Management — Family Grocery
 
+Use the serialized, atomic JSON write procedure in `memory-template.md` for every change to `config.json`. Store preferences do not automatically move existing items: use the versioned CLI `update --store` workflow in `lists.md` when the user also requests moving a current item.
+
 ## Adding a Store
 
 Triggers: "Add store [name]", "Add store [name] at [address]"

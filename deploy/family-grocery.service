@@ -1,0 +1,30 @@
+[Unit]
+Description=Family Grocery shared mobile checklist
+After=network.target
+
+[Service]
+Type=simple
+User=grocery
+Group=grocery
+WorkingDirectory=/opt/family-grocery
+EnvironmentFile=/etc/family-grocery.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0007
+ExecStart=/opt/family-grocery/.venv/bin/gunicorn --bind 127.0.0.1:8787 --workers 2 --threads 4 --worker-class gthread --timeout 30 --error-logfile - --capture-output grocery_service.web:create_app()
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/family-grocery
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
